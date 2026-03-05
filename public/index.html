@@ -24,7 +24,6 @@
             padding: 20px;
         }
 
-        /* Роли */
         .role-select {
             text-align: center;
             padding: 50px 20px;
@@ -72,9 +71,12 @@
             box-shadow: 0 10px 20px rgba(0,0,0,0.3);
         }
 
-        /* Игрок */
-        #playerView {
-            position: relative;
+        .hidden {
+            display: none !important;
+        }
+
+        #playerView, #adminView {
+            min-height: 100vh;
         }
 
         .player-list {
@@ -183,15 +185,19 @@
             margin-bottom: 20px;
         }
 
-        .waiting-screen p {
-            font-size: 1.2em;
-            opacity: 0.9;
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
         }
 
-        /* Админ */
-        #adminView {
-            max-width: 800px;
-            margin: 0 auto;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         .admin-header {
@@ -270,25 +276,6 @@
             transition: width 0.3s;
         }
 
-        .hidden {
-            display: none !important;
-        }
-
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
         @media (max-width: 768px) {
             .options-grid {
                 grid-template-columns: 1fr;
@@ -323,7 +310,7 @@
 
         <!-- Вид для игрока -->
         <div id="playerView" class="hidden">
-            <div class="player-list" id="playerList">
+            <div class="player-list">
                 <h3>📊 Игроки</h3>
                 <div id="playersList"></div>
             </div>
@@ -370,7 +357,9 @@
         let currentQuestion = null;
         let hasAnswered = false;
 
-        function selectRole(r) {
+        // Убедимся, что функция доступна глобально
+        window.selectRole = function(r) {
+            console.log('Выбрана роль:', r);
             role = r;
             let name = '';
             
@@ -388,7 +377,32 @@
             }
             
             socket.emit('join', r, name);
-        }
+        };
+
+        window.startGame = function() {
+            console.log('Запуск игры');
+            socket.emit('start-game');
+            document.getElementById('startBtn').disabled = true;
+        };
+
+        window.answer = function(letter) {
+            console.log('Ответ:', letter);
+            if (currentQuestion && !hasAnswered) {
+                hasAnswered = true;
+                socket.emit('answer', { answer: letter });
+                
+                document.querySelectorAll('.option-btn').forEach(btn => {
+                    btn.disabled = true;
+                    if (btn.id === `opt-${letter}`) {
+                        btn.classList.add('selected');
+                    }
+                });
+            }
+        };
+
+        socket.on('connect', () => {
+            console.log('Подключено к серверу');
+        });
 
         socket.on('init', (data) => {
             console.log('Init:', data);
@@ -399,6 +413,7 @@
         });
 
         socket.on('players-update', (players) => {
+            console.log('Обновление игроков:', players);
             if (role === 'player') {
                 const playersList = document.getElementById('playersList');
                 playersList.innerHTML = players
@@ -413,6 +428,7 @@
         });
 
         socket.on('new-question', (q) => {
+            console.log('Новый вопрос:', q);
             hasAnswered = false;
             currentQuestion = q;
             
@@ -448,7 +464,6 @@
                     }
                 }, 1000);
                 
-                // Автоматически блокируем кнопки через время
                 setTimeout(() => {
                     document.querySelectorAll('.option-btn').forEach(btn => {
                         btn.disabled = true;
@@ -466,6 +481,7 @@
         });
 
         socket.on('stats-update', (stats) => {
+            console.log('Статистика:', stats);
             if (role === 'admin') {
                 const barsDiv = document.getElementById('statBars');
                 barsDiv.innerHTML = '<h3>📊 Статистика ответов</h3>';
@@ -493,6 +509,7 @@
         });
 
         socket.on('game-end', (winners) => {
+            console.log('Игра окончена:', winners);
             if (role === 'player') {
                 document.getElementById('questionView').classList.add('hidden');
                 document.getElementById('waitingView').classList.add('hidden');
@@ -514,3 +531,7 @@
                 alert('Игра окончена! Победитель: ' + winners[0]?.name);
                 document.getElementById('startBtn').disabled = false;
             }
+        });
+    </script>
+</body>
+</html>
