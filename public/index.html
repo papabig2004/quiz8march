@@ -474,7 +474,7 @@
             </div>
         </div>
 
-        <!-- Вид для админа (УПРОЩЕННЫЙ) -->
+        <!-- Вид для админа -->
         <div id="adminView" class="hidden">
             <div class="admin-header">
                 <h1>👑 Панель администратора</h1>
@@ -756,6 +756,12 @@
             // Для админа показываем вопрос
             if (role === 'admin') {
                 displayAdminQuestion(q);
+                
+                // Сбрасываем состояние кнопок админа
+                document.getElementById('showCorrectBtn').disabled = true;
+                document.getElementById('nextBtn').disabled = true;
+                document.getElementById('adminPauseContainer').classList.add('hidden');
+                document.getElementById('adminQuestionContainer').classList.remove('hidden');
             }
         });
 
@@ -831,6 +837,11 @@
                 if (correctOption) {
                     correctOption.classList.add('correct');
                 }
+                
+                // РАЗБЛОКИРУЕМ кнопку следующего вопроса ТОЛЬКО здесь!
+                document.getElementById('nextBtn').disabled = false;
+                // Блокируем кнопку показа правильного ответа (чтобы не нажимали дважды)
+                document.getElementById('showCorrectBtn').disabled = true;
             }
         });
 
@@ -857,8 +868,11 @@
                 });
                 
             } else if (role === 'admin') {
+                // Разблокируем кнопку показа правильного ответа
                 document.getElementById('showCorrectBtn').disabled = false;
+                // НЕ РАЗБЛОКИРУЕМ nextBtn здесь!
                 document.getElementById('nextBtn').disabled = true;
+                
                 document.getElementById('adminQuestionContainer').classList.add('hidden');
                 document.getElementById('adminPauseContainer').classList.remove('hidden');
             }
@@ -895,6 +909,8 @@
                 localStorage.removeItem('quizName');
             } else if (role === 'admin') {
                 alert('Игра окончена! Победитель: ' + winners[0]?.name);
+                
+                // Сбрасываем все кнопки админа
                 document.getElementById('startBtn').disabled = false;
                 document.getElementById('showCorrectBtn').disabled = true;
                 document.getElementById('nextBtn').disabled = true;
