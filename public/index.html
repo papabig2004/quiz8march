@@ -455,21 +455,33 @@ let hasAnswered = false;
 let timerInterval = null;
 let questionEnded = false;
 let myLastAnswer = null;
-let mySocketId = null;
+let clientId = null;
+
+// Генерируем или получаем уникальный ID клиента
+function getClientId() {
+    let id = localStorage.getItem('clientId');
+    if (!id) {
+        id = 'client_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('clientId', id);
+    }
+    return id;
+}
 
 // Восстанавливаем роль после обновления
 window.addEventListener('load', () => {
     const savedRole = localStorage.getItem('quizRole');
     const savedName = localStorage.getItem('quizName');
+    clientId = getClientId();
     
-    if (savedRole && savedName) {
-        selectRole(savedRole, savedName, true);
+    if (savedRole === 'player' && savedName) {
+        selectRole('player', savedName, true);
     }
 });
 
 window.selectRole = function(r, savedName = null, isReload = false) {
     console.log('Выбрана роль:', r);
     role = r;
+    clientId = getClientId();
     
     let name = savedName;
     if (r === 'player' && !savedName) {
@@ -486,9 +498,10 @@ window.selectRole = function(r, savedName = null, isReload = false) {
     } else {
         document.getElementById('adminView').classList.remove('hidden');
         localStorage.removeItem('quizRole');
+        localStorage.removeItem('quizName');
     }
     
-    socket.emit('join', r, name);
+    socket.emit('join', { role: r, name: name, clientId: clientId });
 };
 
 window.startGame = function() {
@@ -507,6 +520,11 @@ window.answer = function(letter) {
     console.log('Ответ:', letter);
     if (currentQuestion && !hasAnswered && !questionEnded) {
         socket.emit('answer', { answer: letter });
+        
+        // Временно блокируем кнопки
+        document.querySelectorAll('.option-btn').forEach(btn => {
+            btn.disabled = true;
+        });
     }
 };
 
@@ -565,45 +583,7 @@ function updateOptionStats(stats) {
 }
 
 socket.on('connect', () => {
-    console.log('Подключено к серверу');
-    mySocketId = socket.id;
-});
-
-socket.on('game-state', (state) => {
-    console.log('Состояние игры:', state);
-    if (role === 'player' && state.players) {
-        updatePlayersList(state.players);
-    }
-});
-
-socket.on('current-question', (q) => {
-    console.log('Текущий вопрос после перезагрузки:', q);
-    handleNewQuestion(q);
-});
-
-socket.on('restore-answer', (data) => {
-    console.log('Восстанавливаем ответ:', data);
-    hasAnswered = true;
-    myLastAnswer = data.answer;
-    
-    if (currentQuestion) {
-        updateOptionStyles(currentQuestion.correct);
-    }
-});
-
-socket.on('answer-accepted', (data) => {
-    console.log('Ответ принят:', data);
-    hasAnswered = true;
-    myLastAnswer = data.answer;
-    
-    document.querySelectorAll('.option-btn').forEach(btn => {
-        btn.disabled = true;
-    });
-});
-
-socket.on('answer-rejected', (data) => {
-    console.log('Ответ отклонен:', data);
-    alert('Вы уже отвечали на этот вопрос!');
+    console.log('Подключено к серверу, ID:', socket.id);
 });
 
 socket.on('init', (data) => {
@@ -613,22 +593,23 @@ socket.on('init', (data) => {
     }
 });
 
-function updatePlayersList(players) {
+socket.on('players-update', (players) => {
+    console.log('Обновление игроков:', players);
     if (role === 'player') {
         const playersList = document.getElementById('playersList');
         playersList.innerHTML = players
-            .sort((a, b) => b.score - a.score)
             .map(p => `
-                <div class="player-item">
+                <div class="player-item" style="${p.online === false ? 'opacity: 0.5;' : ''}">
                     <span>${p.name}</span>
                     <span class="player-score">${p.score}</span>
                 </div>
             `).join('');
     }
-}
+});
 
-socket.on('players-update', (players) => {
-    updatePlayersList(players);
+socket.on('current-question', (q) => {
+    console.log('Текущий вопрос после перезагрузки:', q);
+    handleNewQuestion(q);
 });
 
 function handleNewQuestion(q) {
@@ -672,6 +653,21 @@ socket.on('new-question', (q) => {
     handleNewQuestion(q);
 });
 
+socket.on('answer-accepted', (data) => {
+    console.log('Ответ принят:', data);
+    hasAnswered = true;
+    myLastAnswer = data.answer;
+    
+    document.querySelectorAll('.option-btn').forEach(btn => {
+        btn.disabled = true;
+    });
+});
+
+socket.on('answer-rejected', (data) => {
+    console.log('Ответ отклонен:', data);
+    alert('Вы уже отвечали на этот вопрос!');
+});
+
 // Статистика для игроков
 socket.on('stats-update', (stats) => {
     console.log('Статистика для игроков:', stats);
@@ -680,7 +676,7 @@ socket.on('stats-update', (stats) => {
     }
 });
 
-// Статистика для админа (отдельный канал)
+// Статистика для админа
 socket.on('admin-stats-update', (stats) => {
     console.log('Статистика для админа:', stats);
     if (role === 'admin') {

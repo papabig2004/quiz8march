@@ -42,72 +42,65 @@ let gameState = {
     isActive: false,
     isPaused: false,
     timer: 30,
-    players: {}, // id -> { name, score, hasAnswered, lastAnswer, answeredAt }
-    answers: {}, // id -> { answer, isCorrect, timestamp }
+    players: new Map(), // clientId -> { name, score, socketId, hasAnswered, lastAnswer }
+    socketToClient: new Map(), // socketId -> clientId
+    answers: {}, // socketId -> { answer, isCorrect, timestamp }
     questionStartTime: null,
     questionTimer: null,
     totalQuestions: questions.length
 };
 
-// Сохраняем ответы игроков даже после перезагрузки
-const playerAnswers = new Map(); // socketId -> { answer, questionIndex, timestamp }
-
 io.on('connection', (socket) => {
     console.log('Новое подключение:', socket.id);
 
-    // Отправляем текущее состояние
-    socket.emit('game-state', {
-        isActive: gameState.isActive,
-        isPaused: gameState.isPaused,
-        currentQuestion: gameState.currentQuestion,
-        totalQuestions: gameState.totalQuestions,
-        players: Object.values(gameState.players)
-    });
-
-    // Если игрок переподключается, проверяем его прошлый ответ
-    const previousAnswer = playerAnswers.get(socket.id);
-    if (previousAnswer && previousAnswer.questionIndex === gameState.currentQuestion) {
-        socket.emit('restore-answer', {
-            answer: previousAnswer.answer,
-            isCorrect: previousAnswer.isCorrect
-        });
-    }
-
-    socket.on('join', (role, name) => {
+    socket.on('join', (data) => {
+        const { role, name, clientId } = data;
+        console.log('Join:', { role, name, clientId, socketId: socket.id });
+        
         socket.role = role;
         socket.join(role);
         
         if (role === 'player') {
-            // Восстанавливаем игрока, если он уже был
-            if (!gameState.players[socket.id]) {
-                gameState.players[socket.id] = { 
-                    name: name || 'Аноним', 
-                    score: 0,
-                    id: socket.id,
-                    hasAnswered: false,
-                    lastAnswer: null
-                };
-            }
-            
-            // Проверяем, отвечал ли этот игрок на текущий вопрос
-            const previousAnswer = playerAnswers.get(socket.id);
-            if (previousAnswer && previousAnswer.questionIndex === gameState.currentQuestion) {
-                gameState.players[socket.id].hasAnswered = true;
-                gameState.players[socket.id].lastAnswer = previousAnswer.answer;
-                
-                // Восстанавливаем ответ в answers
-                if (!gameState.answers[socket.id]) {
-                    gameState.answers[socket.id] = {
-                        answer: previousAnswer.answer,
-                        isCorrect: previousAnswer.isCorrect,
-                        timestamp: previousAnswer.timestamp
-                    };
+            // Проверяем, есть ли уже игрок с таким clientId
+            let player = null;
+            for (let [cid, p] of gameState.players.entries()) {
+                if (cid === clientId) {
+                    player = p;
+                    break;
                 }
             }
             
-            io.emit('players-update', Object.values(gameState.players));
+            if (player) {
+                // Обновляем socketId для существующего игрока
+                const oldSocketId = player.socketId;
+                gameState.socketToClient.delete(oldSocketId);
+                
+                player.socketId = socket.id;
+                gameState.socketToClient.set(socket.id, clientId);
+                
+                console.log('Игрок переподключен:', clientId, name);
+            } else {
+                // Создаем нового игрока
+                const newPlayer = {
+                    clientId: clientId,
+                    name: name || 'Аноним',
+                    score: 0,
+                    socketId: socket.id,
+                    hasAnswered: false,
+                    lastAnswer: null
+                };
+                
+                gameState.players.set(clientId, newPlayer);
+                gameState.socketToClient.set(socket.id, clientId);
+                
+                console.log('Новый игрок:', clientId, name);
+            }
+            
+            // Отправляем обновленный список игроков
+            sendPlayersUpdate();
         }
         
+        // Отправляем текущее состояние
         socket.emit('init', { 
             role, 
             totalQuestions: gameState.totalQuestions,
@@ -115,25 +108,42 @@ io.on('connection', (socket) => {
             isPaused: gameState.isPaused
         });
 
-        // Отправляем текущую статистику админу при подключении
-        if (role === 'admin' && gameState.isActive) {
+        // Если игра активна, отправляем текущий вопрос
+        if (gameState.isActive && !gameState.isPaused && questions[gameState.currentQuestion]) {
+            const question = questions[gameState.currentQuestion];
+            const timeLeft = Math.max(0, Math.ceil((gameState.questionStartTime + gameState.timer * 1000 - Date.now()) / 1000));
+            
+            socket.emit('current-question', {
+                ...question,
+                timer: timeLeft,
+                questionNumber: gameState.currentQuestion + 1,
+                totalQuestions: gameState.totalQuestions
+            });
+
+            // Отправляем текущую статистику
+            sendStatsToAll();
+        }
+
+        // Если админ, отправляем ему статистику сразу
+        if (role === 'admin') {
             sendStatsToAdmin();
         }
     });
 
     socket.on('start-game', () => {
         if (socket.role === 'admin') {
+            console.log('Игра начата админом');
+            
             gameState.currentQuestion = 0;
             gameState.isActive = true;
             gameState.isPaused = false;
             gameState.answers = {};
-            playerAnswers.clear();
             
             // Сбрасываем состояние игроков
-            Object.keys(gameState.players).forEach(id => {
-                gameState.players[id].hasAnswered = false;
-                gameState.players[id].lastAnswer = null;
-            });
+            for (let [clientId, player] of gameState.players.entries()) {
+                player.hasAnswered = false;
+                player.lastAnswer = null;
+            }
             
             startQuestion();
         }
@@ -141,15 +151,17 @@ io.on('connection', (socket) => {
 
     socket.on('next-question', () => {
         if (socket.role === 'admin') {
+            console.log('Следующий вопрос');
+            
             gameState.isPaused = false;
             gameState.currentQuestion++;
             gameState.answers = {};
             
             // Сбрасываем флаг ответа для всех игроков
-            Object.keys(gameState.players).forEach(id => {
-                gameState.players[id].hasAnswered = false;
-                gameState.players[id].lastAnswer = null;
-            });
+            for (let [clientId, player] of gameState.players.entries()) {
+                player.hasAnswered = false;
+                player.lastAnswer = null;
+            }
             
             startQuestion();
         }
@@ -158,30 +170,14 @@ io.on('connection', (socket) => {
     socket.on('answer', (data) => {
         if (!gameState.isActive || gameState.isPaused) return;
         
-        const player = gameState.players[socket.id];
+        const clientId = gameState.socketToClient.get(socket.id);
+        if (!clientId) return;
         
-        // Проверяем, не отвечал ли уже игрок на этот вопрос
-        const existingAnswer = playerAnswers.get(socket.id);
-        if (existingAnswer && existingAnswer.questionIndex === gameState.currentQuestion) {
-            // Игрок уже отвечал на этот вопрос
-            socket.emit('answer-rejected', { reason: 'already-answered' });
-            return;
-        }
+        const player = gameState.players.get(clientId);
         
         if (player && !player.hasAnswered) {
             const question = questions[gameState.currentQuestion];
             const isCorrect = data.answer === question.correct;
-            
-            // Сохраняем ответ
-            const answerData = {
-                answer: data.answer,
-                isCorrect: isCorrect,
-                timestamp: Date.now(),
-                questionIndex: gameState.currentQuestion
-            };
-            
-            gameState.answers[socket.id] = answerData;
-            playerAnswers.set(socket.id, answerData);
             
             player.hasAnswered = true;
             player.lastAnswer = data.answer;
@@ -190,30 +186,51 @@ io.on('connection', (socket) => {
                 player.score += 1;
             }
             
-            // Рассчитываем и отправляем статистику
-            updateAndSendStats();
+            // Сохраняем ответ
+            gameState.answers[socket.id] = {
+                answer: data.answer,
+                isCorrect: isCorrect,
+                timestamp: Date.now(),
+                clientId: clientId
+            };
             
-            // Обновляем список игроков
-            io.emit('players-update', Object.values(gameState.players));
+            console.log(`Ответ от ${player.name}: ${data.answer} (${isCorrect ? '✅' : '❌'})`);
+            
+            // Рассчитываем и отправляем статистику
+            sendStatsToAll();
             
             // Подтверждаем игроку, что ответ принят
             socket.emit('answer-accepted', {
                 answer: data.answer,
                 isCorrect: isCorrect
             });
+        } else {
+            socket.emit('answer-rejected', { reason: 'already-answered' });
         }
     });
 
     socket.on('disconnect', () => {
-        // Не удаляем игрока из gameState.players, чтобы сохранить его очки
-        // Просто отмечаем, что он отключился
-        console.log('Игрок отключился:', socket.id);
+        console.log('Отключение:', socket.id);
+        
+        const clientId = gameState.socketToClient.get(socket.id);
+        if (clientId) {
+            const player = gameState.players.get(clientId);
+            if (player) {
+                player.socketId = null; // Отмечаем, что игрок офлайн
+                console.log('Игрок отключился:', player.name);
+            }
+            gameState.socketToClient.delete(socket.id);
+        }
+        
+        // Отправляем обновленный список игроков
+        sendPlayersUpdate();
     });
 });
 
 function startQuestion() {
     if (gameState.currentQuestion >= gameState.totalQuestions) {
-        const winners = Object.values(gameState.players).sort((a, b) => b.score - a.score);
+        const winners = Array.from(gameState.players.values())
+            .sort((a, b) => b.score - a.score);
         io.emit('game-end', winners);
         gameState.isActive = false;
         return;
@@ -223,6 +240,8 @@ function startQuestion() {
     gameState.questionStartTime = Date.now();
     
     const question = questions[gameState.currentQuestion];
+    
+    console.log(`Вопрос ${gameState.currentQuestion + 1}: ${question.question}`);
     
     io.emit('new-question', {
         ...question,
@@ -239,12 +258,13 @@ function startQuestion() {
     // Запускаем таймер окончания вопроса
     gameState.questionTimer = setTimeout(() => {
         if (gameState.isActive && !gameState.isPaused) {
+            console.log('Время вышло');
             gameState.isPaused = true;
             
             const question = questions[gameState.currentQuestion];
             
             // Финальная статистика
-            updateAndSendStats(true);
+            sendStatsToAll(true);
             
             io.emit('question-end', {
                 correct: question.correct,
@@ -255,22 +275,50 @@ function startQuestion() {
     }, gameState.timer * 1000);
 }
 
-function updateAndSendStats(isFinal = false) {
+function sendStatsToAll(isFinal = false) {
+    const stats = calculateStats();
+    stats.final = isFinal;
+    
+    // Всем игрокам
+    io.emit('stats-update', stats);
+    
+    // Отдельно админу
+    sendStatsToAdmin(stats);
+}
+
+function sendStatsToAdmin(existingStats = null) {
+    const stats = existingStats || calculateStats();
+    io.to('admin').emit('admin-stats-update', stats);
+}
+
+function sendPlayersUpdate() {
+    const playersList = Array.from(gameState.players.values())
+        .map(p => ({
+            name: p.name,
+            score: p.score,
+            online: p.socketId !== null
+        }))
+        .sort((a, b) => b.score - a.score);
+    
+    io.emit('players-update', playersList);
+}
+
+function calculateStats() {
     const totalAnswers = Object.keys(gameState.answers).length;
-    const totalPlayers = Object.keys(gameState.players).length;
+    const totalPlayers = gameState.players.size;
     const counts = { A: 0, B: 0, C: 0, D: 0 };
     
     Object.values(gameState.answers).forEach(a => counts[a.answer]++);
     
     // Собираем информацию об ответах каждого игрока
-    const playerAnswers_map = {};
-    Object.keys(gameState.players).forEach(id => {
-        if (gameState.players[id].lastAnswer) {
-            playerAnswers_map[id] = gameState.players[id].lastAnswer;
+    const playerAnswers = {};
+    for (let [clientId, player] of gameState.players.entries()) {
+        if (player.lastAnswer) {
+            playerAnswers[clientId] = player.lastAnswer;
         }
-    });
+    }
     
-    const stats = {
+    return {
         total: totalAnswers,
         totalPlayers: totalPlayers,
         counts: counts,
@@ -281,40 +329,8 @@ function updateAndSendStats(isFinal = false) {
             D: totalAnswers > 0 ? ((counts.D / totalAnswers) * 100).toFixed(1) : 0
         },
         correct: questions[gameState.currentQuestion]?.correct,
-        playerAnswers: playerAnswers_map,
-        final: isFinal
+        playerAnswers: playerAnswers
     };
-    
-    // Отправляем всем игрокам
-    io.emit('stats-update', stats);
-    
-    // Отправляем отдельно админу (для надежности)
-    sendStatsToAdmin(stats);
-}
-
-function sendStatsToAdmin(existingStats = null) {
-    const stats = existingStats || (() => {
-        const totalAnswers = Object.keys(gameState.answers).length;
-        const totalPlayers = Object.keys(gameState.players).length;
-        const counts = { A: 0, B: 0, C: 0, D: 0 };
-        
-        Object.values(gameState.answers).forEach(a => counts[a.answer]++);
-        
-        return {
-            total: totalAnswers,
-            totalPlayers: totalPlayers,
-            counts: counts,
-            percentages: {
-                A: totalAnswers > 0 ? ((counts.A / totalAnswers) * 100).toFixed(1) : 0,
-                B: totalAnswers > 0 ? ((counts.B / totalAnswers) * 100).toFixed(1) : 0,
-                C: totalAnswers > 0 ? ((counts.C / totalAnswers) * 100).toFixed(1) : 0,
-                D: totalAnswers > 0 ? ((counts.D / totalAnswers) * 100).toFixed(1) : 0
-            },
-            correct: questions[gameState.currentQuestion]?.correct
-        };
-    })();
-    
-    io.to('admin').emit('admin-stats-update', stats);
 }
 
 const PORT = process.env.PORT || 3000;
