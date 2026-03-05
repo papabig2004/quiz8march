@@ -158,6 +158,8 @@
             font-weight: bold;
             text-align: left;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
         }
 
         .option-btn:hover:not(:disabled) {
@@ -170,9 +172,40 @@
             color: white;
         }
 
+        .option-btn.correct-answer {
+            background: #4CAF50;
+            color: white;
+            border: 3px solid #ffd700;
+        }
+
+        .option-btn.wrong-answer {
+            background: #f44336;
+            color: white;
+        }
+
         .option-btn:disabled {
-            opacity: 0.6;
             cursor: not-allowed;
+        }
+
+        .option-stats {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 5px;
+            background: rgba(0, 0, 0, 0.3);
+            transition: width 0.3s;
+        }
+
+        .stats-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: normal;
         }
 
         .waiting-screen {
@@ -210,9 +243,16 @@
             margin-bottom: 20px;
         }
 
-        .start-btn {
-            padding: 20px 50px;
-            font-size: 1.5em;
+        .admin-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .admin-btn {
+            padding: 15px 30px;
+            font-size: 1.2em;
             background: #4CAF50;
             color: white;
             border: none;
@@ -222,14 +262,18 @@
             font-weight: bold;
         }
 
-        .start-btn:hover:not(:disabled) {
+        .admin-btn:hover:not(:disabled) {
             transform: scale(1.05);
             box-shadow: 0 10px 20px rgba(0,0,0,0.3);
         }
 
-        .start-btn:disabled {
+        .admin-btn:disabled {
             background: #999;
             cursor: not-allowed;
+        }
+
+        .admin-btn.next {
+            background: #ff9800;
         }
 
         .admin-question {
@@ -250,6 +294,7 @@
 
         .stat-item {
             margin: 15px 0;
+            position: relative;
         }
 
         .stat-label {
@@ -264,6 +309,7 @@
             background: rgba(255, 255, 255, 0.2);
             border-radius: 15px;
             overflow: hidden;
+            position: relative;
         }
 
         .stat-fill {
@@ -274,6 +320,37 @@
             line-height: 30px;
             font-weight: bold;
             transition: width 0.3s;
+        }
+
+        .stat-correct-mark {
+            position: absolute;
+            top: -25px;
+            right: 0;
+            color: #ffd700;
+            font-weight: bold;
+        }
+
+        .pause-screen {
+            text-align: center;
+            padding: 50px 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 20px;
+            margin-top: 30px;
+        }
+
+        .pause-screen h2 {
+            font-size: 2em;
+            margin-bottom: 20px;
+            color: #ffd700;
+        }
+
+        .correct-answer-display {
+            font-size: 3em;
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(76, 175, 80, 0.3);
+            border-radius: 20px;
+            border: 2px solid #4CAF50;
         }
 
         @media (max-width: 768px) {
@@ -293,6 +370,10 @@
                 position: static;
                 max-width: 100%;
                 margin-bottom: 20px;
+            }
+
+            .admin-buttons {
+                flex-direction: column;
             }
         }
     </style>
@@ -317,10 +398,20 @@
 
             <div id="questionView" class="hidden">
                 <div class="question-container">
-                    <div class="timer" id="timer">20</div>
+                    <div class="timer" id="timer">60</div>
                     <div class="question-progress" id="progress"></div>
                     <div class="question-text" id="questionText"></div>
                     <div class="options-grid" id="options"></div>
+                </div>
+            </div>
+
+            <div id="pauseView" class="hidden">
+                <div class="pause-screen">
+                    <h2>⏸ Время вышло!</h2>
+                    <div id="correctAnswer" class="correct-answer-display"></div>
+                    <div class="stats-container" id="pauseStats"></div>
+                    <p>Ожидание следующего вопроса...</p>
+                    <div class="spinner"></div>
                 </div>
             </div>
 
@@ -340,12 +431,19 @@
         <div id="adminView" class="hidden">
             <div class="admin-header">
                 <h1>👑 Панель администратора</h1>
-                <button onclick="startGame()" class="start-btn" id="startBtn">Начать игру</button>
+                <div class="admin-buttons">
+                    <button onclick="startGame()" class="admin-btn" id="startBtn">Начать игру</button>
+                    <button onclick="nextQuestion()" class="admin-btn next" id="nextBtn" disabled>Следующий вопрос ➡</button>
+                </div>
             </div>
 
             <div id="adminStats" class="hidden">
                 <div class="admin-question" id="adminQuestion"></div>
-                <div class="stats-container" id="statBars"></div>
+                <div class="stats-container" id="adminStatBars"></div>
+                <div id="adminPauseInfo" class="hidden">
+                    <h3>⏸ Вопрос завершен</h3>
+                    <p>Нажмите "Следующий вопрос" для продолжения</p>
+                </div>
             </div>
         </div>
     </div>
@@ -356,8 +454,9 @@
         let role = null;
         let currentQuestion = null;
         let hasAnswered = false;
+        let timerInterval = null;
+        let questionEnded = false;
 
-        // Убедимся, что функция доступна глобально
         window.selectRole = function(r) {
             console.log('Выбрана роль:', r);
             role = r;
@@ -385,9 +484,15 @@
             document.getElementById('startBtn').disabled = true;
         };
 
+        window.nextQuestion = function() {
+            console.log('Следующий вопрос');
+            socket.emit('next-question');
+            document.getElementById('nextBtn').disabled = true;
+        };
+
         window.answer = function(letter) {
             console.log('Ответ:', letter);
-            if (currentQuestion && !hasAnswered) {
+            if (currentQuestion && !hasAnswered && !questionEnded) {
                 hasAnswered = true;
                 socket.emit('answer', { answer: letter });
                 
@@ -399,6 +504,32 @@
                 });
             }
         };
+
+        function updateOptionStats(stats) {
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                const letter = btn.id.replace('opt-', '');
+                const count = stats.counts[letter] || 0;
+                const percentage = stats.percentages[letter] || 0;
+                
+                // Удаляем старые бейджи и полоски
+                const oldBadge = btn.querySelector('.stats-badge');
+                const oldStats = btn.querySelector('.option-stats');
+                if (oldBadge) oldBadge.remove();
+                if (oldStats) oldStats.remove();
+                
+                // Добавляем новый бейдж
+                const badge = document.createElement('span');
+                badge.className = 'stats-badge';
+                badge.textContent = `${count} (${percentage}%)`;
+                btn.appendChild(badge);
+                
+                // Добавляем полоску статистики
+                const statsBar = document.createElement('div');
+                statsBar.className = 'option-stats';
+                statsBar.style.width = `${percentage}%`;
+                btn.appendChild(statsBar);
+            });
+        }
 
         socket.on('connect', () => {
             console.log('Подключено к серверу');
@@ -413,7 +544,6 @@
         });
 
         socket.on('players-update', (players) => {
-            console.log('Обновление игроков:', players);
             if (role === 'player') {
                 const playersList = document.getElementById('playersList');
                 playersList.innerHTML = players
@@ -430,10 +560,12 @@
         socket.on('new-question', (q) => {
             console.log('Новый вопрос:', q);
             hasAnswered = false;
+            questionEnded = false;
             currentQuestion = q;
             
             if (role === 'player') {
                 document.getElementById('waitingView').classList.add('hidden');
+                document.getElementById('pauseView').classList.add('hidden');
                 document.getElementById('questionView').classList.remove('hidden');
                 document.getElementById('gameEndView')?.classList.add('hidden');
                 
@@ -451,28 +583,22 @@
                 const timerSpan = document.getElementById('timer');
                 timerSpan.textContent = timeLeft;
                 
-                if (window.timerInterval) clearInterval(window.timerInterval);
+                if (timerInterval) clearInterval(timerInterval);
                 
-                window.timerInterval = setInterval(() => {
+                timerInterval = setInterval(() => {
                     timeLeft--;
                     timerSpan.textContent = timeLeft;
                     if (timeLeft <= 0) {
-                        clearInterval(window.timerInterval);
-                        document.querySelectorAll('.option-btn').forEach(btn => {
-                            btn.disabled = true;
-                        });
+                        clearInterval(timerInterval);
                     }
                 }, 1000);
-                
-                setTimeout(() => {
-                    document.querySelectorAll('.option-btn').forEach(btn => {
-                        btn.disabled = true;
-                    });
-                }, q.timer * 1000);
                 
             } else if (role === 'admin') {
                 document.getElementById('adminStats').classList.remove('hidden');
                 document.getElementById('startBtn').disabled = true;
+                document.getElementById('nextBtn').disabled = true;
+                document.getElementById('adminPauseInfo').classList.add('hidden');
+                
                 document.getElementById('adminQuestion').innerHTML = `
                     <h3>${q.questionNumber}. ${q.question}</h3>
                     <p>⏱️ Время: ${q.timer} сек</p>
@@ -482,8 +608,11 @@
 
         socket.on('stats-update', (stats) => {
             console.log('Статистика:', stats);
-            if (role === 'admin') {
-                const barsDiv = document.getElementById('statBars');
+            
+            if (role === 'player') {
+                updateOptionStats(stats);
+            } else if (role === 'admin') {
+                const barsDiv = document.getElementById('adminStatBars');
                 barsDiv.innerHTML = '<h3>📊 Статистика ответов</h3>';
                 
                 const letters = ['A', 'B', 'C', 'D'];
@@ -491,7 +620,62 @@
                     const count = stats.counts[letter] || 0;
                     const percentage = stats.percentages[letter] || 0;
                     
+                    let markHtml = '';
+                    if (stats.correct === letter) {
+                        markHtml = '<div class="stat-correct-mark">✓ Правильный ответ</div>';
+                    }
+                    
                     barsDiv.innerHTML += `
+                        <div class="stat-item">
+                            <div class="stat-label">
+                                <span>Вариант ${letter}</span>
+                                <span>${count} ответов (${percentage}%)</span>
+                            </div>
+                            <div class="stat-bar">
+                                <div class="stat-fill" style="width: ${percentage}%">${percentage}%</div>
+                            </div>
+                            ${markHtml}
+                        </div>
+                    `;
+                });
+                
+                barsDiv.innerHTML += `<p>Всего ответов: ${stats.total} из ${stats.totalPlayers} игроков</p>`;
+            }
+        });
+
+        socket.on('question-end', (data) => {
+            console.log('Вопрос завершен:', data);
+            questionEnded = true;
+            
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            
+            if (role === 'player') {
+                document.getElementById('questionView').classList.add('hidden');
+                document.getElementById('pauseView').classList.remove('hidden');
+                
+                // Показываем правильный ответ
+                const correctLetter = data.correct;
+                let correctText = '';
+                if (currentQuestion) {
+                    const correctOption = currentQuestion.options.find(opt => opt.charAt(0) === correctLetter);
+                    correctText = correctOption || `Вариант ${correctLetter}`;
+                }
+                document.getElementById('correctAnswer').innerHTML = `
+                    Правильный ответ: ${correctText}
+                `;
+                
+                // Показываем финальную статистику
+                const statsDiv = document.getElementById('pauseStats');
+                statsDiv.innerHTML = '<h3>📊 Итоговая статистика</h3>';
+                
+                const letters = ['A', 'B', 'C', 'D'];
+                letters.forEach(letter => {
+                    const count = data.stats.counts[letter] || 0;
+                    const percentage = data.stats.percentages[letter] || 0;
+                    
+                    statsDiv.innerHTML += `
                         <div class="stat-item">
                             <div class="stat-label">
                                 <span>Вариант ${letter}</span>
@@ -504,14 +688,32 @@
                     `;
                 });
                 
-                barsDiv.innerHTML += `<p>Всего ответов: ${stats.total}</p>`;
+                // Подсвечиваем правильный ответ на кнопках
+                document.querySelectorAll('.option-btn').forEach(btn => {
+                    const letter = btn.id.replace('opt-', '');
+                    if (letter === data.correct) {
+                        btn.classList.add('correct-answer');
+                    } else if (btn.classList.contains('selected')) {
+                        btn.classList.add('wrong-answer');
+                    }
+                });
+                
+            } else if (role === 'admin') {
+                document.getElementById('nextBtn').disabled = false;
+                document.getElementById('adminPauseInfo').classList.remove('hidden');
             }
         });
 
         socket.on('game-end', (winners) => {
             console.log('Игра окончена:', winners);
+            
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            
             if (role === 'player') {
                 document.getElementById('questionView').classList.add('hidden');
+                document.getElementById('pauseView').classList.add('hidden');
                 document.getElementById('waitingView').classList.add('hidden');
                 document.getElementById('gameEndView').classList.remove('hidden');
                 
@@ -530,6 +732,7 @@
             } else if (role === 'admin') {
                 alert('Игра окончена! Победитель: ' + winners[0]?.name);
                 document.getElementById('startBtn').disabled = false;
+                document.getElementById('nextBtn').disabled = true;
             }
         });
     </script>
