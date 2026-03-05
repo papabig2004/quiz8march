@@ -807,28 +807,30 @@ window.restartGame = function() {
         }).join('');
     }
 
-    function displayFinalStats(stats) {
-        const statsDiv = document.getElementById('finalStatsContent');
-        statsDiv.innerHTML = '';
+   function displayFinalStats(stats) {
+    const statsDiv = document.getElementById('finalStatsContent');
+    statsDiv.innerHTML = '';
+    
+    const letters = ['A', 'B', 'C', 'D'];
+    letters.forEach(letter => {
+        const count = stats.counts[letter] || 0;
+        const percentage = stats.percentages[letter] || 0;
         
-        const letters = ['A', 'B', 'C', 'D'];
-        letters.forEach(letter => {
-            const count = stats.counts[letter] || 0;
-            const percentage = stats.percentages[letter] || 0;
-            
-            statsDiv.innerHTML += `
-                <div class="stat-item">
-                    <div class="stat-label">
-                        <span>Вариант ${letter}</span>
-                        <span>${count} ответов (${percentage}%)</span>
-                    </div>
-                    <div class="stat-bar">
-                        <div class="stat-fill" style="width: ${percentage}%">${percentage}%</div>
-                    </div>
+        statsDiv.innerHTML += `
+            <div class="stat-item">
+                <div class="stat-label">
+                    <span>Вариант ${letter}</span>
+                    <span>${count} ответов (${percentage}%)</span>
                 </div>
-            `;
-        });
-        
+                <div class="stat-bar">
+                    <div class="stat-fill" style="width: ${percentage}%"></div>
+                </div>
+            </div>
+        `;
+    });
+    
+    statsDiv.innerHTML += `<p>Всего ответов: ${stats.total} из ${stats.totalPlayers} игроков</p>`;
+}
         statsDiv.innerHTML += `<p>Всего ответов: ${stats.total} из ${stats.totalPlayers} игроков</p>`;
     }
 
@@ -868,11 +870,7 @@ window.restartGame = function() {
         }
     });
 
-// Добавьте в существующие обработчики socket.on
-socket.on('scores-reset', () => {
-    console.log('Очки сброшены');
-    // Список игроков обновится автоматически через players-update
-});
+
 
     socket.on('players-update', (players) => {
         console.log('Обновление игроков:', players);
