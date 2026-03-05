@@ -167,6 +167,16 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('show-correct-answer', () => {
+        if (socket.role === 'admin' && gameState.isPaused) {
+            const question = questions[gameState.currentQuestion];
+            io.emit('show-correct-answer', {
+                correct: question.correct,
+                options: question.options
+            });
+        }
+    });
+
     socket.on('answer', (data) => {
         if (!gameState.isActive || gameState.isPaused) return;
         
