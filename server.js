@@ -657,6 +657,10 @@ io.on('connection', (socket) => {
         // Отправляем обновленный список игроков
         sendPlayersUpdate();
     });
+
+    socket.on('request-players-update', () => {
+        sendPlayersUpdate();
+    });
 });
 
 function startQuestion() {
@@ -774,7 +778,7 @@ function sendPlayersUpdate() {
             score: p.score,
             online: p.socketId !== null
         }))
-        .sort((a, b) => b.score - a.score);
+        .sort((a, b) => b.score - a.score); // Сортировка по убыванию очков
     
     io.emit('players-update', playersList);
 }
