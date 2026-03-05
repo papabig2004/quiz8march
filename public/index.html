@@ -217,11 +217,11 @@
             height: 5px;
             background: rgba(0, 0, 0, 0.3);
             transition: width 0.3s;
-            display: none; /* Скрыто по умолчанию */
+            display: none;
         }
 
         .option-btn.answered .option-stats {
-            display: block; /* Показываем только после ответа */
+            display: block;
         }
 
         .stats-badge {
@@ -234,11 +234,11 @@
             border-radius: 20px;
             font-size: 0.8em;
             font-weight: normal;
-            display: none; /* Скрыто по умолчанию */
+            display: none;
         }
 
         .option-btn.answered .stats-badge {
-            display: block; /* Показываем только после ответа */
+            display: block;
         }
 
         .waiting-screen {
@@ -306,6 +306,11 @@
 
         .admin-btn.show {
             background: #2196F3;
+            color: white;
+        }
+
+        .admin-btn.restart {
+            background: #dc3545;
             color: white;
         }
 
@@ -444,6 +449,51 @@
             display: block;
         }
 
+        .rank-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin: 10px 0;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            font-size: 1.3em;
+            transition: transform 0.2s;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .rank-item:hover {
+            transform: scale(1.02);
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .rank-number {
+            font-size: 1.8em;
+            margin-right: 20px;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .rank-players {
+            flex: 1;
+            text-align: left;
+            font-weight: 500;
+        }
+
+        .rank-item:nth-child(1) .rank-number {
+            color: #ffd700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        .rank-item:nth-child(2) .rank-number {
+            color: #c0c0c0;
+            text-shadow: 0 0 10px rgba(192, 192, 192, 0.5);
+        }
+
+        .rank-item:nth-child(3) .rank-number {
+            color: #cd7f32;
+            text-shadow: 0 0 10px rgba(205, 127, 50, 0.5);
+        }
+
         @media (max-width: 768px) {
             .options-grid {
                 grid-template-columns: 1fr;
@@ -470,74 +520,22 @@
             .admin-options {
                 grid-template-columns: 1fr;
             }
-.rank-item {
-    display: flex;
-    align-items: center;
-    padding: 15px;
-    margin: 10px 0;
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 12px;
-    font-size: 1.3em;
-    transition: transform 0.2s;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
 
-.rank-item:hover {
-    transform: scale(1.02);
-    background: rgba(255, 255, 255, 0.2);
-}
+            .rank-item {
+                font-size: 1.1em;
+                padding: 10px;
+            }
 
-.rank-number {
-    font-size: 1.8em;
-    margin-right: 20px;
-    min-width: 60px;
-    text-align: center;
-}
-
-.rank-players {
-    flex: 1;
-    text-align: left;
-    font-weight: 500;
-}
-
-/* Медали для топ-3 */
-.rank-item:nth-child(1) .rank-number {
-    color: #ffd700;
-    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-}
-
-.rank-item:nth-child(2) .rank-number {
-    color: #c0c0c0;
-    text-shadow: 0 0 10px rgba(192, 192, 192, 0.5);
-}
-
-.rank-item:nth-child(3) .rank-number {
-    color: #cd7f32;
-    text-shadow: 0 0 10px rgba(205, 127, 50, 0.5);
-}
-.admin-btn.reset {
-    background: #dc3545;
-    color: white;
-}
-
-.admin-btn.reset:hover {
-    background: #c82333;
-}
-
-.admin-btn.restart {
-    background: #ff9800;
-    color: white;
-}
-
-.admin-btn.restart:hover {
-    background: #f57c00;
-}
+            .rank-number {
+                font-size: 1.4em;
+                min-width: 45px;
+                margin-right: 10px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Выбор роли -->
         <div id="roleSelect" class="role-select">
             <h1>🎮 ВИКТОРИНА 🎮</h1>
             <div class="role-buttons">
@@ -546,7 +544,6 @@
             </div>
         </div>
 
-        <!-- Вид для игрока -->
         <div id="playerView" class="hidden">
             <div class="player-list">
                 <h3>📊 Игроки</h3>
@@ -593,7 +590,6 @@
             </div>
         </div>
 
-        <!-- Вид для админа -->
         <div id="adminView" class="hidden">
             <div class="admin-header">
                 <h1>👑 Панель администратора</h1>
@@ -601,7 +597,7 @@
                     <button onclick="startGame()" class="admin-btn start" id="startBtn">Начать игру</button>
                     <button onclick="showCorrectAnswer()" class="admin-btn show" id="showCorrectBtn" disabled>Показать правильный ответ</button>
                     <button onclick="nextQuestion()" class="admin-btn next" id="nextBtn" disabled>Следующий вопрос ➡</button>
-		    <button onclick="restartGame()" class="admin-btn restart" id="restartBtn">🔄 Начать заново</button>
+                    <button onclick="restartGame()" class="admin-btn restart" id="restartBtn">🔄 Начать заново</button>
                 </div>
             </div>
 
@@ -630,584 +626,482 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-    const socket = io();
-    let role = null;
-    let currentQuestion = null;
-    let hasAnswered = false;
-    let timerInterval = null;
-    let questionEnded = false;
-    let myLastAnswer = null;
-    let clientId = null;
-    let correctAnswerShown = false;
-    let finalStatsData = null;
+        const socket = io();
+        let role = null;
+        let currentQuestion = null;
+        let hasAnswered = false;
+        let timerInterval = null;
+        let questionEnded = false;
+        let myLastAnswer = null;
+        let clientId = null;
+        let correctAnswerShown = false;
+        let finalStatsData = null;
 
-    // Генерируем или получаем уникальный ID клиента
-    function getClientId() {
-        let id = localStorage.getItem('clientId');
-        if (!id) {
-            id = 'client_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('clientId', id);
-        }
-        return id;
-    }
-
-    // Восстанавливаем роль после обновления
-    window.addEventListener('load', () => {
-        const savedRole = localStorage.getItem('quizRole');
-        const savedName = localStorage.getItem('quizName');
-        clientId = getClientId();
-        
-        if (savedRole === 'player' && savedName) {
-            selectRole('player', savedName, true);
-        }
-    });
-
-    window.selectRole = function(r, savedName = null, isReload = false) {
-        console.log('Выбрана роль:', r);
-        role = r;
-        clientId = getClientId();
-        
-        let name = savedName;
-        if (r === 'player' && !savedName) {
-            name = prompt('Введите ваше имя:', 'Игрок') || 'Аноним';
-            localStorage.setItem('quizRole', r);
-            localStorage.setItem('quizName', name);
-        }
-        
-        document.getElementById('roleSelect').classList.add('hidden');
-        
-        if (r === 'player') {
-            document.getElementById('playerView').classList.remove('hidden');
-            document.getElementById('waitingView').classList.remove('hidden');
-        } else {
-            document.getElementById('adminView').classList.remove('hidden');
-            document.getElementById('adminWaitingContainer').classList.remove('hidden');
-            localStorage.removeItem('quizRole');
-            localStorage.removeItem('quizName');
-        }
-        
-        socket.emit('join', { role: r, name: name, clientId: clientId });
-    };
-
-    window.startGame = function() {
-        console.log('Запуск игры');
-        socket.emit('start-game');
-        document.getElementById('startBtn').disabled = true;
-    };
-
-    window.showCorrectAnswer = function() {
-        console.log('Показать правильный ответ');
-        socket.emit('show-correct-answer');
-        document.getElementById('showCorrectBtn').disabled = true;
-    };
-
-    window.nextQuestion = function() {
-        console.log('Следующий вопрос');
-        socket.emit('next-question');
-        document.getElementById('nextBtn').disabled = true;
-        document.getElementById('showCorrectBtn').disabled = true;
-    };
-
-window.restartGame = function() {
-    console.log('Перезапуск игры');
-    if (confirm('Начать викторину заново? Все очки будут сброшены.')) {
-        socket.emit('restart-game');
-        
-        // Сбрасываем локальное состояние
-        document.getElementById('startBtn').disabled = true;
-        document.getElementById('showCorrectBtn').disabled = true;
-        document.getElementById('nextBtn').disabled = true;
-        document.getElementById('restartBtn').disabled = true;
-    }
-};
-
-    window.answer = function(letter) {
-        console.log('Ответ:', letter);
-        if (currentQuestion && !hasAnswered && !questionEnded) {
-            socket.emit('answer', { answer: letter });
-            
-            // Временно блокируем кнопки
-            document.querySelectorAll('.option-btn').forEach(btn => {
-                btn.disabled = true;
-            });
-        }
-    };
-
-    function updateOptionStyles(correctAnswer) {
-        document.querySelectorAll('.option-btn').forEach(btn => {
-            const letter = btn.id.replace('opt-', '');
-            
-            // Убираем предыдущие классы
-            btn.classList.remove('selected-correct', 'selected-wrong', 'correct-answer');
-            
-            // Если это правильный ответ И он уже показан, добавляем обводку
-            if (correctAnswerShown && correctAnswer && letter === correctAnswer) {
-                btn.classList.add('correct-answer');
+        function getClientId() {
+            let id = localStorage.getItem('clientId');
+            if (!id) {
+                id = 'client_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('clientId', id);
             }
+            return id;
+        }
+
+        window.addEventListener('load', () => {
+            const savedRole = localStorage.getItem('quizRole');
+            const savedName = localStorage.getItem('quizName');
+            clientId = getClientId();
             
-            // Если это мой ответ
-            if (myLastAnswer === letter) {
-                if (correctAnswerShown && correctAnswer && myLastAnswer === correctAnswer) {
-                    btn.classList.add('selected-correct');
-                } else if (correctAnswerShown && correctAnswer) {
-                    btn.classList.add('selected-wrong');
-                }
+            if (savedRole === 'player' && savedName) {
+                selectRole('player', savedName, true);
             }
         });
-    }
 
-    function updateOptionStats(stats) {
-        document.querySelectorAll('.option-btn').forEach(btn => {
-            const letter = btn.id.replace('opt-', '');
-            const count = stats.counts[letter] || 0;
-            const percentage = stats.percentages[letter] || 0;
+        window.selectRole = function(r, savedName = null, isReload = false) {
+            console.log('Выбрана роль:', r);
+            role = r;
+            clientId = getClientId();
             
-            // Удаляем старые бейджи и полоски
-            const oldBadge = btn.querySelector('.stats-badge');
-            const oldStats = btn.querySelector('.option-stats');
-            if (oldBadge) oldBadge.remove();
-            if (oldStats) oldStats.remove();
-            
-            // Добавляем новый бейдж
-            const badge = document.createElement('span');
-            badge.className = 'stats-badge';
-            badge.textContent = `${count} (${percentage}%)`;
-            btn.appendChild(badge);
-            
-            // Добавляем полоску статистики
-            const statsBar = document.createElement('div');
-            statsBar.className = 'option-stats';
-            statsBar.style.width = `${percentage}%`;
-            btn.appendChild(statsBar);
-        });
-
-        // Обновляем стили кнопок
-        if (correctAnswerShown && stats.correct) {
-            updateOptionStyles(stats.correct);
-        }
-    }
-
-    function displayAdminQuestion(q) {
-        document.getElementById('adminWaitingContainer').classList.add('hidden');
-        document.getElementById('adminPauseContainer').classList.add('hidden');
-        document.getElementById('adminQuestionContainer').classList.remove('hidden');
-        
-        document.getElementById('adminQuestionText').textContent = q.question;
-        
-        const optionsDiv = document.getElementById('adminOptions');
-        optionsDiv.innerHTML = q.options.map(opt => {
-            const letter = opt.charAt(0);
-            const isCorrect = letter === q.correct;
-            return `
-                <div class="admin-option ${isCorrect ? 'correct-answer' : ''}" id="admin-opt-${letter}">
-                    ${opt}
-                    ${isCorrect ? '<span class="correct-badge">✓ Правильный</span>' : ''}
-                </div>
-            `;
-        }).join('');
-    }
-
-   function displayFinalStats(stats) {
-    const statsDiv = document.getElementById('finalStatsContent');
-    statsDiv.innerHTML = '';
-    
-    const letters = ['A', 'B', 'C', 'D'];
-    letters.forEach(letter => {
-        const count = stats.counts[letter] || 0;
-        const percentage = stats.percentages[letter] || 0;
-        
-        statsDiv.innerHTML += `
-            <div class="stat-item">
-                <div class="stat-label">
-                    <span>Вариант ${letter}</span>
-                    <span>${count} ответов (${percentage}%)</span>
-                </div>
-                <div class="stat-bar">
-                    <div class="stat-fill" style="width: ${percentage}%"></div>
-                </div>
-            </div>
-        `;
-    });
-    
-    statsDiv.innerHTML += `<p>Всего ответов: ${stats.total} из ${stats.totalPlayers} игроков</p>`;
-}
-        statsDiv.innerHTML += `<p>Всего ответов: ${stats.total} из ${stats.totalPlayers} игроков</p>`;
-    }
-
-    function updatePlayersList(players) {
-        if (role === 'player') {
-            const playersList = document.getElementById('playersList');
-            
-            // Сортируем игроков по убыванию очков (от большего к меньшему)
-            const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
-            
-            playersList.innerHTML = sortedPlayers
-                .map((p, index) => {
-                    // Добавляем эмодзи для топ-3
-                    let rankEmoji = '';
-                    if (index === 0) rankEmoji = '🥇 ';
-                    else if (index === 1) rankEmoji = '🥈 ';
-                    else if (index === 2) rankEmoji = '🥉 ';
-                    
-                    return `
-                        <div class="player-item ${p.online === false ? 'offline' : ''}">
-                            <span>${rankEmoji}${p.name}</span>
-                            <span class="player-score">${p.score}</span>
-                        </div>
-                    `;
-                }).join('');
-        }
-    }
-
-    socket.on('connect', () => {
-        console.log('Подключено к серверу, ID:', socket.id);
-    });
-
-    socket.on('init', (data) => {
-        console.log('Init:', data);
-        if (data.gameState && role === 'player') {
-            document.getElementById('waitingView').classList.add('hidden');
-        }
-    });
-
-
-
-    socket.on('players-update', (players) => {
-        console.log('Обновление игроков:', players);
-        updatePlayersList(players);
-    });
-
-socket.on('game-restarted', () => {
-    console.log('Игра перезапущена');
-    
-    if (role === 'admin') {
-        // Разблокируем кнопку старта
-        document.getElementById('startBtn').disabled = false;
-        document.getElementById('restartBtn').disabled = false;
-        
-        // Показываем окно ожидания
-        document.getElementById('adminQuestionContainer').classList.add('hidden');
-        document.getElementById('adminPauseContainer').classList.add('hidden');
-        document.getElementById('adminWaitingContainer').classList.remove('hidden');
-        document.getElementById('adminWaitingContainer').innerHTML = `
-            <h2>🔄 Игра перезапущена</h2>
-            <p>Все очки сброшены. Нажмите "Начать игру" когда все готовы</p>
-        `;
-    }
-});
-    socket.on('current-question', (q) => {
-        console.log('Текущий вопрос после перезагрузки:', q);
-        handleNewQuestion(q);
-    });
-
-    function handleNewQuestion(q) {
-        hasAnswered = false;
-        questionEnded = false;
-        correctAnswerShown = false;
-        currentQuestion = q;
-        myLastAnswer = null;
-        finalStatsData = null;
-        
-        document.getElementById('waitingView').classList.add('hidden');
-        document.getElementById('pauseView').classList.add('hidden');
-        document.getElementById('questionView').classList.remove('hidden');
-        document.getElementById('gameEndView')?.classList.add('hidden');
-        
-        document.getElementById('questionText').textContent = q.question;
-        document.getElementById('progress').textContent = 
-            `Вопрос ${q.questionNumber} из ${q.totalQuestions}`;
-        
-        const optionsDiv = document.getElementById('options');
-        optionsDiv.innerHTML = q.options.map(opt => {
-            const letter = opt.charAt(0);
-            return `<button class="option-btn" onclick="answer('${letter}')" id="opt-${letter}">${opt}</button>`;
-        }).join('');
-        
-        let timeLeft = q.timer;
-        const timerSpan = document.getElementById('timer');
-        timerSpan.textContent = timeLeft;
-        timerSpan.className = 'timer';
-        
-        if (timerInterval) clearInterval(timerInterval);
-        
-        timerInterval = setInterval(() => {
-            timeLeft--;
-            timerSpan.textContent = timeLeft;
-            
-            // Меняем цвет таймера
-            if (timeLeft <= 10) {
-                timerSpan.classList.add('danger');
-            } else if (timeLeft <= 20) {
-                timerSpan.classList.add('warning');
+            let name = savedName;
+            if (r === 'player' && !savedName) {
+                name = prompt('Введите ваше имя:', 'Игрок') || 'Аноним';
+                localStorage.setItem('quizRole', r);
+                localStorage.setItem('quizName', name);
             }
             
-            if (timeLeft <= 0) {
-                clearInterval(timerInterval);
-                timerSpan.textContent = '0';
+            document.getElementById('roleSelect').classList.add('hidden');
+            
+            if (r === 'player') {
+                document.getElementById('playerView').classList.remove('hidden');
+                document.getElementById('waitingView').classList.remove('hidden');
+            } else {
+                document.getElementById('adminView').classList.remove('hidden');
+                document.getElementById('adminWaitingContainer').classList.remove('hidden');
+                localStorage.removeItem('quizRole');
+                localStorage.removeItem('quizName');
+            }
+            
+            socket.emit('join', { role: r, name: name, clientId: clientId });
+        };
+
+        window.startGame = function() {
+            console.log('Запуск игры');
+            socket.emit('start-game');
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('restartBtn').disabled = false;
+        };
+
+        window.showCorrectAnswer = function() {
+            console.log('Показать правильный ответ');
+            socket.emit('show-correct-answer');
+            document.getElementById('showCorrectBtn').disabled = true;
+        };
+
+        window.nextQuestion = function() {
+            console.log('Следующий вопрос');
+            socket.emit('next-question');
+            document.getElementById('nextBtn').disabled = true;
+            document.getElementById('showCorrectBtn').disabled = true;
+        };
+
+        window.restartGame = function() {
+            console.log('Перезапуск игры');
+            if (confirm('Начать викторину заново? Все очки будут сброшены.')) {
+                socket.emit('restart-game');
                 
-                // Блокируем все кнопки при истечении времени
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('showCorrectBtn').disabled = true;
+                document.getElementById('nextBtn').disabled = true;
+                document.getElementById('restartBtn').disabled = true;
+            }
+        };
+
+        window.answer = function(letter) {
+            console.log('Ответ:', letter);
+            if (currentQuestion && !hasAnswered && !questionEnded) {
+                socket.emit('answer', { answer: letter });
+                
                 document.querySelectorAll('.option-btn').forEach(btn => {
                     btn.disabled = true;
                 });
             }
-        }, 1000);
-    }
+        };
 
-    socket.on('new-question', (q) => {
-        console.log('Новый вопрос:', q);
-        handleNewQuestion(q);
-        
-        // Для админа показываем вопрос
-        if (role === 'admin') {
-            displayAdminQuestion(q);
-            
-            // Сбрасываем состояние кнопок админа
-            document.getElementById('showCorrectBtn').disabled = true;
-            document.getElementById('nextBtn').disabled = true;
+        function updateOptionStyles(correctAnswer) {
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                const letter = btn.id.replace('opt-', '');
+                
+                btn.classList.remove('selected-correct', 'selected-wrong', 'correct-answer');
+                
+                if (correctAnswerShown && correctAnswer && letter === correctAnswer) {
+                    btn.classList.add('correct-answer');
+                }
+                
+                if (myLastAnswer === letter) {
+                    if (correctAnswerShown && correctAnswer && myLastAnswer === correctAnswer) {
+                        btn.classList.add('selected-correct');
+                    } else if (correctAnswerShown && correctAnswer) {
+                        btn.classList.add('selected-wrong');
+                    }
+                }
+            });
+        }
+
+        function updateOptionStats(stats) {
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                const letter = btn.id.replace('opt-', '');
+                const count = stats.counts[letter] || 0;
+                const percentage = stats.percentages[letter] || 0;
+                
+                const oldBadge = btn.querySelector('.stats-badge');
+                const oldStats = btn.querySelector('.option-stats');
+                if (oldBadge) oldBadge.remove();
+                if (oldStats) oldStats.remove();
+                
+                const badge = document.createElement('span');
+                badge.className = 'stats-badge';
+                badge.textContent = `${count} (${percentage}%)`;
+                btn.appendChild(badge);
+                
+                const statsBar = document.createElement('div');
+                statsBar.className = 'option-stats';
+                statsBar.style.width = `${percentage}%`;
+                btn.appendChild(statsBar);
+            });
+
+            if (correctAnswerShown && stats.correct) {
+                updateOptionStyles(stats.correct);
+            }
+        }
+
+        function displayAdminQuestion(q) {
+            document.getElementById('adminWaitingContainer').classList.add('hidden');
             document.getElementById('adminPauseContainer').classList.add('hidden');
             document.getElementById('adminQuestionContainer').classList.remove('hidden');
+            
+            document.getElementById('adminQuestionText').textContent = q.question;
+            
+            const optionsDiv = document.getElementById('adminOptions');
+            optionsDiv.innerHTML = q.options.map(opt => {
+                const letter = opt.charAt(0);
+                const isCorrect = letter === q.correct;
+                return `
+                    <div class="admin-option ${isCorrect ? 'correct-answer' : ''}" id="admin-opt-${letter}">
+                        ${opt}
+                        ${isCorrect ? '<span class="correct-badge">✓ Правильный</span>' : ''}
+                    </div>
+                `;
+            }).join('');
         }
-        
-        // Запрашиваем обновленный список игроков
-        socket.emit('request-players-update');
-    });
 
-    socket.on('answer-accepted', (data) => {
-        console.log('Ответ принят:', data);
-        hasAnswered = true;
-        myLastAnswer = data.answer;
-        
-        // Добавляем класс answered ко всем кнопкам, чтобы показать статистику
-        document.querySelectorAll('.option-btn').forEach(btn => {
-            btn.classList.add('answered');
-            btn.disabled = true;
-        });
-    });
-
-    socket.on('answer-rejected', (data) => {
-        console.log('Ответ отклонен:', data);
-        alert('Вы уже отвечали на этот вопрос!');
-    });
-
-    socket.on('all-players-answered', () => {
-        console.log('Все игроки ответили!');
-        
-        if (role === 'player') {
-            // Показываем сообщение, что все ответили
-            const timerSpan = document.getElementById('timer');
-            timerSpan.className = 'timer all-answered';
-            timerSpan.innerHTML = '✅ Все ответили!<br><span style="font-size: 0.4em;">Ожидание...</span>';
-        }
-    });
-
-    // Статистика для игроков
-    socket.on('stats-update', (stats) => {
-        console.log('Статистика для игроков:', stats);
-        if (role === 'player' && hasAnswered) {
-            updateOptionStats(stats);
-        }
-        if (stats.final) {
-            finalStatsData = stats;
-        }
-    });
-
-    // Показать правильный ответ (по команде админа)
-    socket.on('show-correct-answer', (data) => {
-        console.log('Показать правильный ответ:', data);
-        correctAnswerShown = true;
-        
-        if (role === 'player') {
-            // Показываем правильный ответ игрокам
-            document.getElementById('waitingCorrectMessage').classList.add('hidden');
+        function displayFinalStats(stats) {
+            const statsDiv = document.getElementById('finalStatsContent');
+            statsDiv.innerHTML = '';
             
-            const correctAnswerDiv = document.getElementById('correctAnswer');
-            correctAnswerDiv.classList.remove('hidden');
-            
-            // Показываем финальную статистику
-            if (finalStatsData) {
-                document.getElementById('finalStats').classList.remove('hidden');
-                displayFinalStats(finalStatsData);
-            }
-            
-            // Находим текст правильного ответа
-            let correctText = '';
-            if (data.options) {
-                const correctOption = data.options.find(opt => opt.charAt(0) === data.correct);
-                correctText = correctOption || `Вариант ${data.correct}`;
-            }
-            
-            correctAnswerDiv.innerHTML = `
-                <strong>Правильный ответ:</strong><br>
-                ${correctText}
-            `;
-            
-            // Обновляем стили кнопок
-            if (currentQuestion) {
-                updateOptionStyles(data.correct);
-            }
-        } else if (role === 'admin') {
-            // РАЗБЛОКИРУЕМ кнопку следующего вопроса
-            document.getElementById('nextBtn').disabled = false;
-            // Блокируем кнопку показа правильного ответа
-            document.getElementById('showCorrectBtn').disabled = true;
-        }
-    });
-
-    socket.on('question-end', (data) => {
-        console.log('Вопрос завершен:', data);
-        questionEnded = true;
-        correctAnswerShown = false;
-        
-        if (timerInterval) {
-            clearInterval(timerInterval);
-        }
-        
-        if (role === 'player') {
-            document.getElementById('questionView').classList.add('hidden');
-            document.getElementById('pauseView').classList.remove('hidden');
-            
-            // Скрываем правильный ответ и статистику (они появятся после команды админа)
-            document.getElementById('correctAnswer').classList.add('hidden');
-            document.getElementById('finalStats').classList.add('hidden');
-            document.getElementById('waitingCorrectMessage').classList.remove('hidden');
-            
-            // Блокируем все кнопки навсегда
-            document.querySelectorAll('.option-btn').forEach(btn => {
-                btn.disabled = true;
-            });
-            
-        } else if (role === 'admin') {
-            // Разблокируем кнопку показа правильного ответа
-            document.getElementById('showCorrectBtn').disabled = false;
-            // НЕ РАЗБЛОКИРУЕМ nextBtn здесь!
-            document.getElementById('nextBtn').disabled = true;
-            
-            document.getElementById('adminQuestionContainer').classList.add('hidden');
-            document.getElementById('adminPauseContainer').classList.remove('hidden');
-        }
-        
-        // Запрашиваем обновленный список игроков
-        socket.emit('request-players-update');
-    });
-
-    socket.on('game-end', (winners) => {
-        console.log('Игра окончена:', winners);
-        
-        if (timerInterval) {
-            clearInterval(timerInterval);
-        }
-        
-        if (role === 'player') {
-            document.getElementById('questionView').classList.add('hidden');
-            document.getElementById('pauseView').classList.add('hidden');
-            document.getElementById('waitingView').classList.add('hidden');
-            document.getElementById('gameEndView').classList.remove('hidden');
-            
-            // Группируем игроков по местам
-            const rankedPlayers = [];
-            let currentRank = 1;
-            let currentScore = null;
-            
-            for (let i = 0; i < winners.length; i++) {
-                const player = winners[i];
+            const letters = ['A', 'B', 'C', 'D'];
+            letters.forEach(letter => {
+                const count = stats.counts[letter] || 0;
+                const percentage = stats.percentages[letter] || 0;
                 
-                if (currentScore === null) {
-                    // Первый игрок
-                    currentScore = player.score;
-                    rankedPlayers.push({
-                        rank: currentRank,
-                        players: [player.name]
-                    });
-                } else if (player.score === currentScore) {
-                    // Тот же счет - добавляем к текущему месту
-                    rankedPlayers[rankedPlayers.length - 1].players.push(player.name);
-                } else {
-                    // Новый счет - новое место
-                    currentRank = rankedPlayers.length + 1;
-                    currentScore = player.score;
-                    rankedPlayers.push({
-                        rank: currentRank,
-                        players: [player.name]
-                    });
-                }
-            }
-            
-            // Формируем HTML для таблицы результатов
-            const winnersDiv = document.getElementById('winners');
-            
-            let rankingsHTML = '<h3>🥇 ИТОГОВАЯ ТАБЛИЦА</h3>';
-            
-            rankedPlayers.forEach(rankData => {
-                const medalEmoji = rankData.rank === 1 ? '🥇' : (rankData.rank === 2 ? '🥈' : (rankData.rank === 3 ? '🥉' : `${rankData.rank}.`));
-                
-                // Сортируем имена для красоты
-                const sortedNames = rankData.players.sort();
-                
-                // Формируем строку с именами
-                let namesString = '';
-                if (sortedNames.length === 1) {
-                    namesString = sortedNames[0];
-                } else if (sortedNames.length === 2) {
-                    namesString = `${sortedNames[0]}, ${sortedNames[1]}`;
-                } else {
-                    // Больше двух - через запятую и "и"
-                    const last = sortedNames.pop();
-                    namesString = sortedNames.join(', ') + ' и ' + last;
-                }
-                
-                rankingsHTML += `
-                    <div class="rank-item">
-                        <span class="rank-number">${medalEmoji}</span>
-                        <span class="rank-players">${namesString}</span>
+                statsDiv.innerHTML += `
+                    <div class="stat-item">
+                        <div class="stat-label">
+                            <span>Вариант ${letter}</span>
+                            <span>${count} ответов (${percentage}%)</span>
+                        </div>
+                        <div class="stat-bar">
+                            <div class="stat-fill" style="width: ${percentage}%"></div>
+                        </div>
                     </div>
                 `;
             });
             
-            winnersDiv.innerHTML = rankingsHTML;
-            
-            // Очищаем сохраненные данные
-            localStorage.removeItem('quizRole');
-            localStorage.removeItem('quizName');
-        } else if (role === 'admin') {
-            // Формируем сообщение для админа
-            let winnersMessage = 'Игра окончена!\n\n';
-            
-            let currentRank = 1;
-            let currentScore = null;
-            
-            for (let i = 0; i < winners.length; i++) {
-                const player = winners[i];
+            statsDiv.innerHTML += `<p>Всего ответов: ${stats.total} из ${stats.totalPlayers} игроков</p>`;
+        }
+
+        function updatePlayersList(players) {
+            if (role === 'player') {
+                const playersList = document.getElementById('playersList');
                 
-                if (currentScore === null) {
-                    currentScore = player.score;
-                    winnersMessage += `${currentRank}. ${player.name}`;
-                } else if (player.score === currentScore) {
-                    winnersMessage += `, ${player.name}`;
-                } else {
-                    currentRank = i + 1;
-                    currentScore = player.score;
-                    winnersMessage += `\n${currentRank}. ${player.name}`;
+                const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+                
+                playersList.innerHTML = sortedPlayers
+                    .map((p, index) => {
+                        let rankEmoji = '';
+                        if (index === 0) rankEmoji = '🥇 ';
+                        else if (index === 1) rankEmoji = '🥈 ';
+                        else if (index === 2) rankEmoji = '🥉 ';
+                        
+                        return `
+                            <div class="player-item ${p.online === false ? 'offline' : ''}">
+                                <span>${rankEmoji}${p.name}</span>
+                                <span class="player-score">${p.score}</span>
+                            </div>
+                        `;
+                    }).join('');
+            }
+        }
+
+        socket.on('connect', () => {
+            console.log('Подключено к серверу, ID:', socket.id);
+        });
+
+        socket.on('init', (data) => {
+            console.log('Init:', data);
+            if (data.gameState && role === 'player') {
+                document.getElementById('waitingView').classList.add('hidden');
+            }
+        });
+
+        socket.on('players-update', (players) => {
+            console.log('Обновление игроков:', players);
+            updatePlayersList(players);
+        });
+
+        socket.on('current-question', (q) => {
+            console.log('Текущий вопрос после перезагрузки:', q);
+            handleNewQuestion(q);
+        });
+
+        function handleNewQuestion(q) {
+            hasAnswered = false;
+            questionEnded = false;
+            correctAnswerShown = false;
+            currentQuestion = q;
+            myLastAnswer = null;
+            finalStatsData = null;
+            
+            document.getElementById('waitingView').classList.add('hidden');
+            document.getElementById('pauseView').classList.add('hidden');
+            document.getElementById('questionView').classList.remove('hidden');
+            document.getElementById('gameEndView')?.classList.add('hidden');
+            
+            document.getElementById('questionText').textContent = q.question;
+            document.getElementById('progress').textContent = 
+                `Вопрос ${q.questionNumber} из ${q.totalQuestions}`;
+            
+            const optionsDiv = document.getElementById('options');
+            optionsDiv.innerHTML = q.options.map(opt => {
+                const letter = opt.charAt(0);
+                return `<button class="option-btn" onclick="answer('${letter}')" id="opt-${letter}">${opt}</button>`;
+            }).join('');
+            
+            let timeLeft = q.timer;
+            const timerSpan = document.getElementById('timer');
+            timerSpan.textContent = timeLeft;
+            timerSpan.className = 'timer';
+            
+            if (timerInterval) clearInterval(timerInterval);
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerSpan.textContent = timeLeft;
+                
+                if (timeLeft <= 10) {
+                    timerSpan.classList.add('danger');
+                } else if (timeLeft <= 20) {
+                    timerSpan.classList.add('warning');
                 }
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    timerSpan.textContent = '0';
+                    
+                    document.querySelectorAll('.option-btn').forEach(btn => {
+                        btn.disabled = true;
+                    });
+                }
+            }, 1000);
+        }
+
+        socket.on('new-question', (q) => {
+            console.log('Новый вопрос:', q);
+            handleNewQuestion(q);
+            
+            if (role === 'admin') {
+                displayAdminQuestion(q);
+                
+                document.getElementById('showCorrectBtn').disabled = true;
+                document.getElementById('nextBtn').disabled = true;
+                document.getElementById('adminPauseContainer').classList.add('hidden');
+                document.getElementById('adminQuestionContainer').classList.remove('hidden');
+            }
+        });
+
+        socket.on('answer-accepted', (data) => {
+            console.log('Ответ принят:', data);
+            hasAnswered = true;
+            myLastAnswer = data.answer;
+            
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                btn.classList.add('answered');
+                btn.disabled = true;
+            });
+        });
+
+        socket.on('answer-rejected', (data) => {
+            console.log('Ответ отклонен:', data);
+            alert('Вы уже отвечали на этот вопрос!');
+        });
+
+        socket.on('all-players-answered', () => {
+            console.log('Все игроки ответили!');
+            
+            if (role === 'player') {
+                const timerSpan = document.getElementById('timer');
+                timerSpan.className = 'timer all-answered';
+                timerSpan.innerHTML = '✅ Все ответили!<br><span style="font-size: 0.4em;">Ожидание...</span>';
+            }
+        });
+
+        socket.on('stats-update', (stats) => {
+            console.log('Статистика для игроков:', stats);
+            if (role === 'player' && hasAnswered) {
+                updateOptionStats(stats);
+            }
+            if (stats.final) {
+                finalStatsData = stats;
+            }
+        });
+
+        socket.on('show-correct-answer', (data) => {
+            console.log('Показать правильный ответ:', data);
+            correctAnswerShown = true;
+            
+            if (role === 'player') {
+                document.getElementById('waitingCorrectMessage').classList.add('hidden');
+                
+                const correctAnswerDiv = document.getElementById('correctAnswer');
+                correctAnswerDiv.classList.remove('hidden');
+                
+                if (finalStatsData) {
+                    document.getElementById('finalStats').classList.remove('hidden');
+                    displayFinalStats(finalStatsData);
+                }
+                
+                let correctText = '';
+                if (data.options) {
+                    const correctOption = data.options.find(opt => opt.charAt(0) === data.correct);
+                    correctText = correctOption || `Вариант ${data.correct}`;
+                }
+                
+                correctAnswerDiv.innerHTML = `
+                    <strong>Правильный ответ:</strong><br>
+                    ${correctText}
+                `;
+                
+                if (currentQuestion) {
+                    updateOptionStyles(data.correct);
+                }
+            } else if (role === 'admin') {
+                document.getElementById('nextBtn').disabled = false;
+                document.getElementById('showCorrectBtn').disabled = true;
+            }
+        });
+
+        socket.on('question-end', (data) => {
+            console.log('Вопрос завершен:', data);
+            questionEnded = true;
+            correctAnswerShown = false;
+            
+            if (timerInterval) {
+                clearInterval(timerInterval);
             }
             
-            alert(winnersMessage);
+            if (role === 'player') {
+                document.getElementById('questionView').classList.add('hidden');
+                document.getElementById('pauseView').classList.remove('hidden');
+                
+                document.getElementById('correctAnswer').classList.add('hidden');
+                document.getElementById('finalStats').classList.add('hidden');
+                document.getElementById('waitingCorrectMessage').classList.remove('hidden');
+                
+                document.querySelectorAll('.option-btn').forEach(btn => {
+                    btn.disabled = true;
+                });
+                
+            } else if (role === 'admin') {
+                document.getElementById('showCorrectBtn').disabled = false;
+                document.getElementById('nextBtn').disabled = true;
+                
+                document.getElementById('adminQuestionContainer').classList.add('hidden');
+                document.getElementById('adminPauseContainer').classList.remove('hidden');
+            }
+        });
+
+        socket.on('game-restarted', () => {
+            console.log('Игра перезапущена');
             
-            // Сбрасываем все кнопки админа
-            document.getElementById('startBtn').disabled = false;
-            document.getElementById('showCorrectBtn').disabled = true;
-            document.getElementById('nextBtn').disabled = true;
+            if (role === 'admin') {
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('showCorrectBtn').disabled = true;
+                document.getElementById('nextBtn').disabled = true;
+                document.getElementById('restartBtn').disabled = false;
+                
+                document.getElementById('adminQuestionContainer').classList.add('hidden');
+                document.getElementById('adminPauseContainer').classList.add('hidden');
+                document.getElementById('adminWaitingContainer').classList.remove('hidden');
+                document.getElementById('adminWaitingContainer').innerHTML = `
+                    <h2>🔄 Игра перезапущена</h2>
+                    <p>Все очки сброшены. Нажмите "Начать игру" когда все готовы</p>
+                `;
+            }
+        });
+
+        socket.on('game-end', (winners) => {
+            console.log('Игра окончена:', winners);
             
-            // Показываем сообщение об окончании
-            document.getElementById('adminQuestionContainer').classList.add('hidden');
-            document.getElementById('adminPauseContainer').classList.add('hidden');
-            document.getElementById('adminWaitingContainer').classList.remove('hidden');
-            document.getElementById('adminWaitingContainer').innerHTML = `
-                <h2>🏆 ИГРА ОКОНЧЕНА</h2>
-                <p>Победитель: ${winners[0]?.name} (${winners[0]?.score} очков)</p>
-                <button onclick="startGame()" class="admin-btn start">Начать новую игру</button>
-            `;
-        }
-    });
-</script>
-</body>
-</html>
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            
+            if (role === 'player') {
+                document.getElementById('questionView').classList.add('hidden');
+                document.getElementById('pauseView').classList.add('hidden');
+                document.getElementById('waitingView').classList.add('hidden');
+                document.getElementById('gameEndView').classList.remove('hidden');
+                
+                const rankedPlayers = [];
+                let currentRank = 1;
+                let currentScore = null;
+                
+                for (let i = 0; i < winners.length; i++) {
+                    const player = winners[i];
+                    
+                    if (currentScore === null) {
+                        currentScore = player.score;
+                        rankedPlayers.push({
+                            rank: currentRank,
+                            players: [player.name]
+                        });
+                    } else if (player.score === currentScore) {
+                        rankedPlayers[rankedPlayers.length - 1].players.push(player.name);
+                    } else {
+                        currentRank = rankedPlayers.length + 1;
+                        currentScore = player.score;
+                        rankedPlayers.push({
+                            rank: currentRank,
+                            players: [player.name]
+                        });
+                    }
+                }
+                
+                const winnersDiv = document.getElementById('winners');
+                
+                let rankingsHTML = '<h3>🥇 ИТОГОВАЯ ТАБЛИЦА</h3>';
+                
+                rankedPlayers.forEach(rankData => {
+                    const medalEmoji = rankData.rank === 1 ? '🥇' : (rankData.rank === 2 ? '🥈' : (rankData.rank === 3 ? '🥉' : `${rankData.rank}.`));
+                    
+                    const sortedNames = rankData.players.sort();
+                    
+                    let namesString = '';
+                    if (sortedNames.length === 1) {
+                        namesString = sortedNames[0];
+                    } else if (sortedNames.length === 2) {
+                        namesString = `${sortedNames[0]}, ${sortedNames[1]}`;
+                    } else {
+                        const last = sortedNames.pop();
+                        namesString = sortedNames.join(', ') + ' и ' + last;
+                    }
+                    
+                    rankingsHTML += `
