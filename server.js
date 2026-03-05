@@ -661,6 +661,61 @@ io.on('connection', (socket) => {
     socket.on('request-players-update', () => {
         sendPlayersUpdate();
     });
+
+    
+    socket.on('game-reset', () => {
+        console.log('Игра сброшена');
+        
+        if (role === 'player') {
+            // Очищаем localStorage
+            localStorage.removeItem('quizRole');
+            localStorage.removeItem('quizName');
+            localStorage.removeItem('clientId');
+            
+            // Показываем сообщение о сбросе
+            alert('Игра была сброшена администратором. Пожалуйста, перезайдите как новый игрок.');
+            
+            // Возвращаем на экран выбора роли
+            document.getElementById('playerView').classList.add('hidden');
+            document.getElementById('roleSelect').classList.remove('hidden');
+            
+            // Сбрасываем все таймеры
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+        }
+    });
+
+
+    socket.on('reset-game', () => {
+        if (socket.role === 'admin') {
+            console.log('Сброс игры админом');
+            
+            // Полностью очищаем состояние игры
+            gameState.currentQuestion = 0;
+            gameState.isActive = false;
+            gameState.isPaused = false;
+            gameState.players.clear();
+            gameState.socketToClient.clear();
+            gameState.answers = {};
+            playerAnswers.clear();
+            
+            // Очищаем таймеры
+            if (gameState.questionTimer) {
+                clearTimeout(gameState.questionTimer);
+                gameState.questionTimer = null;
+            }
+            if (gameState.allAnsweredTimer) {
+                clearTimeout(gameState.allAnsweredTimer);
+                gameState.allAnsweredTimer = null;
+            }
+            
+            // Отправляем всем игрокам сигнал о сбросе
+            io.emit('game-reset');
+            
+            console.log('Игра сброшена');
+        }
+    });
 });
 
 function startQuestion() {

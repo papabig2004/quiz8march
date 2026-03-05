@@ -515,6 +515,14 @@
     color: #cd7f32;
     text-shadow: 0 0 10px rgba(205, 127, 50, 0.5);
 }
+.admin-btn.reset {
+    background: #dc3545;
+    color: white;
+}
+
+.admin-btn.reset:hover {
+    background: #c82333;
+}
         }
     </style>
 </head>
@@ -584,6 +592,7 @@
                     <button onclick="startGame()" class="admin-btn start" id="startBtn">Начать игру</button>
                     <button onclick="showCorrectAnswer()" class="admin-btn show" id="showCorrectBtn" disabled>Показать правильный ответ</button>
                     <button onclick="nextQuestion()" class="admin-btn next" id="nextBtn" disabled>Следующий вопрос ➡</button>
+		    <button onclick="resetGame()" class="admin-btn reset" id="resetBtn">🔄 Сбросить игру</button>
                 </div>
             </div>
 
@@ -689,6 +698,27 @@
         document.getElementById('nextBtn').disabled = true;
         document.getElementById('showCorrectBtn').disabled = true;
     };
+
+window.resetGame = function() {
+    console.log('Сброс игры');
+    if (confirm('Вы уверены? Это удалит всех игроков и начнет игру заново.')) {
+        socket.emit('reset-game');
+        
+        // Сбрасываем локальное состояние
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('showCorrectBtn').disabled = true;
+        document.getElementById('nextBtn').disabled = true;
+        
+        // Показываем окно ожидания
+        document.getElementById('adminQuestionContainer').classList.add('hidden');
+        document.getElementById('adminPauseContainer').classList.add('hidden');
+        document.getElementById('adminWaitingContainer').classList.remove('hidden');
+        document.getElementById('adminWaitingContainer').innerHTML = `
+            <h2>⏳ Игра сброшена</h2>
+            <p>Нажмите "Начать игру" когда все игроки подключены</p>
+        `;
+    }
+};
 
     window.answer = function(letter) {
         console.log('Ответ:', letter);
