@@ -9,7 +9,7 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Вопросы из вашего файла (первые 5 для примера, добавьте все 40)
+// Вопросы из вашего файла
 const questions = [
     {
         id: 1,
@@ -41,54 +41,35 @@ let gameState = {
     currentQuestion: 0,
     isActive: false,
     isPaused: false,
-    timer: 30, // 30 секунд на ответ
-    players: {},
-    answers: {},
+    timer: 30,
+    players: {}, // id -> { name, score, hasAnswered, lastAnswer, answeredAt }
+    answers: {}, // id -> { answer, isCorrect, timestamp }
     questionStartTime: null,
-    questionTimer: null
+    questionTimer: null,
+    totalQuestions: questions.length
 };
+
+// Сохраняем ответы игроков даже после перезагрузки
+const playerAnswers = new Map(); // socketId -> { answer, questionIndex, timestamp }
 
 io.on('connection', (socket) => {
     console.log('Новое подключение:', socket.id);
 
-    // Отправляем текущее состояние при подключении
+    // Отправляем текущее состояние
     socket.emit('game-state', {
         isActive: gameState.isActive,
         isPaused: gameState.isPaused,
         currentQuestion: gameState.currentQuestion,
-        totalQuestions: questions.length,
+        totalQuestions: gameState.totalQuestions,
         players: Object.values(gameState.players)
     });
 
-    // Если игра активна, отправляем текущий вопрос
-    if (gameState.isActive && !gameState.isPaused && questions[gameState.currentQuestion]) {
-        const question = questions[gameState.currentQuestion];
-        const timeLeft = Math.max(0, Math.ceil((gameState.questionStartTime + gameState.timer * 1000 - Date.now()) / 1000));
-        
-        socket.emit('current-question', {
-            ...question,
-            timer: timeLeft,
-            questionNumber: gameState.currentQuestion + 1,
-            totalQuestions: questions.length
-        });
-
-        // Отправляем текущую статистику
-        const totalAnswers = Object.keys(gameState.answers).length;
-        const totalPlayers = Object.keys(gameState.players).length;
-        const counts = { A: 0, B: 0, C: 0, D: 0 };
-        Object.values(gameState.answers).forEach(a => counts[a.answer]++);
-        
-        socket.emit('stats-update', {
-            total: totalAnswers,
-            totalPlayers: totalPlayers,
-            counts: counts,
-            percentages: {
-                A: totalAnswers > 0 ? ((counts.A / totalAnswers) * 100).toFixed(1) : 0,
-                B: totalAnswers > 0 ? ((counts.B / totalAnswers) * 100).toFixed(1) : 0,
-                C: totalAnswers > 0 ? ((counts.C / totalAnswers) * 100).toFixed(1) : 0,
-                D: totalAnswers > 0 ? ((counts.D / totalAnswers) * 100).toFixed(1) : 0
-            },
-            correct: question.correct
+    // Если игрок переподключается, проверяем его прошлый ответ
+    const previousAnswer = playerAnswers.get(socket.id);
+    if (previousAnswer && previousAnswer.questionIndex === gameState.currentQuestion) {
+        socket.emit('restore-answer', {
+            answer: previousAnswer.answer,
+            isCorrect: previousAnswer.isCorrect
         });
     }
 
@@ -97,7 +78,7 @@ io.on('connection', (socket) => {
         socket.join(role);
         
         if (role === 'player') {
-            // Проверяем, не был ли игрок уже в игре
+            // Восстанавливаем игрока, если он уже был
             if (!gameState.players[socket.id]) {
                 gameState.players[socket.id] = { 
                     name: name || 'Аноним', 
@@ -107,15 +88,37 @@ io.on('connection', (socket) => {
                     lastAnswer: null
                 };
             }
+            
+            // Проверяем, отвечал ли этот игрок на текущий вопрос
+            const previousAnswer = playerAnswers.get(socket.id);
+            if (previousAnswer && previousAnswer.questionIndex === gameState.currentQuestion) {
+                gameState.players[socket.id].hasAnswered = true;
+                gameState.players[socket.id].lastAnswer = previousAnswer.answer;
+                
+                // Восстанавливаем ответ в answers
+                if (!gameState.answers[socket.id]) {
+                    gameState.answers[socket.id] = {
+                        answer: previousAnswer.answer,
+                        isCorrect: previousAnswer.isCorrect,
+                        timestamp: previousAnswer.timestamp
+                    };
+                }
+            }
+            
             io.emit('players-update', Object.values(gameState.players));
         }
         
         socket.emit('init', { 
             role, 
-            totalQuestions: questions.length,
+            totalQuestions: gameState.totalQuestions,
             gameState: gameState.isActive,
             isPaused: gameState.isPaused
         });
+
+        // Отправляем текущую статистику админу при подключении
+        if (role === 'admin' && gameState.isActive) {
+            sendStatsToAdmin();
+        }
     });
 
     socket.on('start-game', () => {
@@ -124,6 +127,7 @@ io.on('connection', (socket) => {
             gameState.isActive = true;
             gameState.isPaused = false;
             gameState.answers = {};
+            playerAnswers.clear();
             
             // Сбрасываем состояние игроков
             Object.keys(gameState.players).forEach(id => {
@@ -155,15 +159,29 @@ io.on('connection', (socket) => {
         if (!gameState.isActive || gameState.isPaused) return;
         
         const player = gameState.players[socket.id];
+        
+        // Проверяем, не отвечал ли уже игрок на этот вопрос
+        const existingAnswer = playerAnswers.get(socket.id);
+        if (existingAnswer && existingAnswer.questionIndex === gameState.currentQuestion) {
+            // Игрок уже отвечал на этот вопрос
+            socket.emit('answer-rejected', { reason: 'already-answered' });
+            return;
+        }
+        
         if (player && !player.hasAnswered) {
             const question = questions[gameState.currentQuestion];
             const isCorrect = data.answer === question.correct;
             
-            gameState.answers[socket.id] = {
+            // Сохраняем ответ
+            const answerData = {
                 answer: data.answer,
                 isCorrect: isCorrect,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                questionIndex: gameState.currentQuestion
             };
+            
+            gameState.answers[socket.id] = answerData;
+            playerAnswers.set(socket.id, answerData);
             
             player.hasAnswered = true;
             player.lastAnswer = data.answer;
@@ -172,24 +190,29 @@ io.on('connection', (socket) => {
                 player.score += 1;
             }
             
-            // Рассчитываем статистику
+            // Рассчитываем и отправляем статистику
             updateAndSendStats();
             
             // Обновляем список игроков
             io.emit('players-update', Object.values(gameState.players));
+            
+            // Подтверждаем игроку, что ответ принят
+            socket.emit('answer-accepted', {
+                answer: data.answer,
+                isCorrect: isCorrect
+            });
         }
     });
 
     socket.on('disconnect', () => {
-        if (gameState.players[socket.id]) {
-            delete gameState.players[socket.id];
-            io.emit('players-update', Object.values(gameState.players));
-        }
+        // Не удаляем игрока из gameState.players, чтобы сохранить его очки
+        // Просто отмечаем, что он отключился
+        console.log('Игрок отключился:', socket.id);
     });
 });
 
 function startQuestion() {
-    if (gameState.currentQuestion >= questions.length) {
+    if (gameState.currentQuestion >= gameState.totalQuestions) {
         const winners = Object.values(gameState.players).sort((a, b) => b.score - a.score);
         io.emit('game-end', winners);
         gameState.isActive = false;
@@ -205,10 +228,10 @@ function startQuestion() {
         ...question,
         timer: gameState.timer,
         questionNumber: gameState.currentQuestion + 1,
-        totalQuestions: questions.length
+        totalQuestions: gameState.totalQuestions
     });
     
-    // Очищаем предыдущий таймер если был
+    // Очищаем предыдущий таймер
     if (gameState.questionTimer) {
         clearTimeout(gameState.questionTimer);
     }
@@ -240,10 +263,10 @@ function updateAndSendStats(isFinal = false) {
     Object.values(gameState.answers).forEach(a => counts[a.answer]++);
     
     // Собираем информацию об ответах каждого игрока
-    const playerAnswers = {};
+    const playerAnswers_map = {};
     Object.keys(gameState.players).forEach(id => {
         if (gameState.players[id].lastAnswer) {
-            playerAnswers[id] = gameState.players[id].lastAnswer;
+            playerAnswers_map[id] = gameState.players[id].lastAnswer;
         }
     });
     
@@ -258,11 +281,40 @@ function updateAndSendStats(isFinal = false) {
             D: totalAnswers > 0 ? ((counts.D / totalAnswers) * 100).toFixed(1) : 0
         },
         correct: questions[gameState.currentQuestion]?.correct,
-        playerAnswers: playerAnswers,
+        playerAnswers: playerAnswers_map,
         final: isFinal
     };
     
+    // Отправляем всем игрокам
     io.emit('stats-update', stats);
+    
+    // Отправляем отдельно админу (для надежности)
+    sendStatsToAdmin(stats);
+}
+
+function sendStatsToAdmin(existingStats = null) {
+    const stats = existingStats || (() => {
+        const totalAnswers = Object.keys(gameState.answers).length;
+        const totalPlayers = Object.keys(gameState.players).length;
+        const counts = { A: 0, B: 0, C: 0, D: 0 };
+        
+        Object.values(gameState.answers).forEach(a => counts[a.answer]++);
+        
+        return {
+            total: totalAnswers,
+            totalPlayers: totalPlayers,
+            counts: counts,
+            percentages: {
+                A: totalAnswers > 0 ? ((counts.A / totalAnswers) * 100).toFixed(1) : 0,
+                B: totalAnswers > 0 ? ((counts.B / totalAnswers) * 100).toFixed(1) : 0,
+                C: totalAnswers > 0 ? ((counts.C / totalAnswers) * 100).toFixed(1) : 0,
+                D: totalAnswers > 0 ? ((counts.D / totalAnswers) * 100).toFixed(1) : 0
+            },
+            correct: questions[gameState.currentQuestion]?.correct
+        };
+    })();
+    
+    io.to('admin').emit('admin-stats-update', stats);
 }
 
 const PORT = process.env.PORT || 3000;
