@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Викторина</title>
+    <style>
+        body { font-family: Arial; margin: 0; padding: 20px; background: #1a1a2e; color: white; }
+        .container { max-width: 800px; margin: 0 auto; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #0f3460; color: white; border: none; border-radius: 5px; }
+        .role-select { text-align: center; margin-top: 50px; }
+        .role-select button { margin: 10px; }
+        .question-container { text-align: center; }
+        .options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
+        .option { padding: 20px; background: #16213e; cursor: pointer; border-radius: 5px; }
+        .option:hover { background: #0f3460; }
+        .timer { font-size: 48px; margin: 20px; }
+        .stats { background: #16213e; padding: 20px; border-radius: 5px; }
+        .stat-bar { height: 30px; background: #0f3460; margin: 5px 0; border-radius: 5px; overflow: hidden; }
+        .stat-fill { height: 100%; background: #e94560; color: white; text-align: center; line-height: 30px; }
+        .player-list { position: fixed; right: 20px; top: 20px; background: #16213e; padding: 10px; border-radius: 5px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="roleSelect" class="role-select">
+            <h1>Викторина</h1>
+            <button onclick="selectRole('player')">Я игрок</button>
+            <button onclick="selectRole('admin')">Я админ</button>
+        </div>
+        
+        <div id="playerView" class="hidden">
+            <div class="player-list" id="playerList"></div>
+            <div id="questionView" class="hidden">
+                <div class="timer" id="timer">20</div>
+                <div class="question-container">
+                    <h2 id="questionText"></h2>
+                    <div class="options" id="options"></div>
+                </div>
+            </div>
+            <div id="waitingView" class="hidden">
+                <h2>Ожидание начала игры...</h2>
+            </div>
+        </div>
+        
+        <div id="adminView" class="hidden">
+            <div class="stats" id="stats">
+                <h2>Статистика</h2>
+                <div id="adminQuestion"></div>
+                <div id="statBars"></div>
+                <button onclick="startGame()" id="startBtn">Начать игру</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let role = null;
+        let currentQuestion = null;
+
+        function selectRole(r) {
+            role = r;
+            let name = r === 'player' ? prompt('Введите ваше имя:') : null;
+            document.getElementById('roleSelect').classList.add('hidden');
+            
+            if (r === 'player') {
+                document.getElementById('playerView').classList.remove('hidden');
+                document.getElementById('waitingView').classList.remove('hidden');
+            } else {
+                document.getElementById('adminView').classList.remove('hidden');
+            }
+            
+            socket.emit('join', r, name);
+        }
+
+        socket.on('init', (data) => {
+            if (data.gameState && role === 'player') {
+                document.getElementById('waitingView').classList.add('hidden');
+                document.getElementById('questionView').classList.remove('hidden');
+            }
+        });
+
+        socket.on('players-update', (players) => {
+            if (role === 'player') {
+                const list = document.getElementById('playerList');
+                list.innerHTML = '<h3>Игроки:</h3>' + 
+                    players.map(p => `<div>${p.name}: ${p.score}</div>`).join('');
+            }
+        });
+
+        socket.on('new-question', (q) => {
+            if (role === 'player') {
+                currentQuestion = q;
+                document.getElementById('waitingView').classList.add('hidden');
+                document.getElementById('questionView').classList.remove('hidden');
+                document.getElementById('questionText').textContent = q.question;
+                
+                const optionsDiv = document.getElementById('options');
+                optionsDiv.innerHTML = q.options.map(opt => {
+                    const letter = opt.charAt(0);
+                    return `<div class="option" onclick="answer('${letter}')">${opt}</div>`;
+                }).join('');
+                
+                let timeLeft = q.timer;
+                const timerSpan = document.getElementById('timer');
+                timerSpan.textContent = timeLeft;
+                
+                const interval = setInterval(() => {
+                    timeLeft--;
+                    timerSpan.textContent = timeLeft;
+                    if (timeLeft <= 0) clearInterval(interval);
+                }, 1000);
+            } else if (role === 'admin') {
+                document.getElementById('adminQuestion').innerHTML = `<h3>${q.question}</h3>`;
+            }
+        });
+
+        socket.on('stats-update', (stats) => {
+            if (role === 'admin') {
+                const barsDiv = document.getElementById('statBars');
+                barsDiv.innerHTML = '';
+                for (let [opt, pct] of Object.entries(stats.percentages)) {
+                    barsDiv.innerHTML += `
+                        <div>${opt}: ${pct}%</div>
+                        <div class="stat-bar">
+                            <div class="stat-fill" style="width: ${pct}%">${pct}%</div>
+                        </div>
+                    `;
+                }
+            }
+        });
+
+        socket.on('game-end', (players) => {
+            alert('Игра окончена! Победитель: ' + players.sort((a,b) => b.score - a.score)[0].name);
+        });
+
+        function answer(letter) {
+            if (currentQuestion) {
+                socket.emit('answer', { answer: letter });
+            }
+        }
+
+        function startGame() {
+            socket.emit('start-game');
+            document.getElementById('startBtn').disabled = true;
+        }
+    </script>
+</body>
+</html>
