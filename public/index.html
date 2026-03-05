@@ -138,6 +138,11 @@
             animation: pulse 1s infinite;
         }
 
+        .timer.all-answered {
+            font-size: 3em;
+            color: #4CAF50;
+        }
+
         @keyframes pulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.1); }
@@ -304,58 +309,60 @@
             cursor: not-allowed;
         }
 
-        .admin-question {
+        .admin-question-box {
             background: rgba(255, 255, 255, 0.1);
-            padding: 20px;
-            border-radius: 10px;
+            padding: 30px;
+            border-radius: 20px;
             margin: 20px 0;
+            text-align: center;
+            border: 2px solid rgba(255,255,255,0.2);
         }
 
-        .admin-question h3 {
-            font-size: 1.5em;
-            margin-bottom: 15px;
+        .admin-question-box h2 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            color: #ffd700;
         }
 
-        .stats-container {
+        .admin-question-text {
+            font-size: 2em;
+            margin: 20px 0;
+            line-height: 1.4;
+        }
+
+        .admin-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
             margin-top: 20px;
         }
 
-        .stat-item {
-            margin: 15px 0;
-            position: relative;
+        .admin-option {
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            font-size: 1.2em;
+            text-align: left;
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
-        .stat-label {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-            font-size: 1.1em;
+        .admin-option.correct {
+            border: 2px solid #ffd700;
+            background: rgba(255, 215, 0, 0.1);
         }
 
-        .stat-bar {
-            height: 30px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 15px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .stat-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #4CAF50, #8BC34A);
-            color: white;
+        .admin-pause-info {
             text-align: center;
-            line-height: 30px;
-            font-weight: bold;
-            transition: width 0.3s;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            margin-top: 20px;
         }
 
-        .stat-correct-mark {
-            position: absolute;
-            top: -25px;
-            right: 0;
+        .admin-pause-info h3 {
+            font-size: 1.8em;
             color: #ffd700;
-            font-weight: bold;
+            margin-bottom: 15px;
         }
 
         .pause-screen {
@@ -409,6 +416,10 @@
             .admin-buttons {
                 flex-direction: column;
             }
+
+            .admin-options {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -446,7 +457,6 @@
                     <div id="waitingCorrectMessage" class="waiting-correct-answer">
                         ⏳ Ожидание, пока админ покажет правильный ответ...
                     </div>
-                    <div class="stats-container" id="pauseStats"></div>
                     <p>Ожидание следующего вопроса...</p>
                     <div class="spinner"></div>
                 </div>
@@ -464,7 +474,7 @@
             </div>
         </div>
 
-        <!-- Вид для админа -->
+        <!-- Вид для админа (УПРОЩЕННЫЙ) -->
         <div id="adminView" class="hidden">
             <div class="admin-header">
                 <h1>👑 Панель администратора</h1>
@@ -475,13 +485,25 @@
                 </div>
             </div>
 
-            <div id="adminStats" class="hidden">
-                <div class="admin-question" id="adminQuestion"></div>
-                <div class="stats-container" id="adminStatBars"></div>
-                <div id="adminPauseInfo" class="hidden">
-                    <h3>⏸ Вопрос завершен</h3>
-                    <p>Нажмите "Показать правильный ответ", затем "Следующий вопрос"</p>
+            <div id="adminQuestionContainer" class="hidden">
+                <div class="admin-question-box">
+                    <h2>📋 ТЕКУЩИЙ ВОПРОС</h2>
+                    <div class="admin-question-text" id="adminQuestionText"></div>
+                    <div class="admin-options" id="adminOptions"></div>
                 </div>
+            </div>
+
+            <div id="adminPauseContainer" class="hidden">
+                <div class="admin-pause-info">
+                    <h3>⏸ ВОПРОС ЗАВЕРШЕН</h3>
+                    <p>Нажмите "Показать правильный ответ", чтобы раскрыть ответ игрокам</p>
+                    <p>Затем нажмите "Следующий вопрос" для продолжения</p>
+                </div>
+            </div>
+
+            <div id="adminWaitingContainer" class="admin-question-box">
+                <h2>⏳ Ожидание начала игры</h2>
+                <p>Нажмите "Начать игру" когда все игроки подключены</p>
             </div>
         </div>
     </div>
@@ -538,6 +560,7 @@
                 document.getElementById('waitingView').classList.remove('hidden');
             } else {
                 document.getElementById('adminView').classList.remove('hidden');
+                document.getElementById('adminWaitingContainer').classList.remove('hidden');
                 localStorage.removeItem('quizRole');
                 localStorage.removeItem('quizName');
             }
@@ -624,10 +647,24 @@
                 btn.appendChild(statsBar);
             });
 
-            // Обновляем стили кнопок (но без показа правильного ответа)
+            // Обновляем стили кнопок
             if (correctAnswerShown && stats.correct) {
                 updateOptionStyles(stats.correct);
             }
+        }
+
+        function displayAdminQuestion(q) {
+            document.getElementById('adminWaitingContainer').classList.add('hidden');
+            document.getElementById('adminPauseContainer').classList.add('hidden');
+            document.getElementById('adminQuestionContainer').classList.remove('hidden');
+            
+            document.getElementById('adminQuestionText').textContent = q.question;
+            
+            const optionsDiv = document.getElementById('adminOptions');
+            optionsDiv.innerHTML = q.options.map(opt => {
+                const letter = opt.charAt(0);
+                return `<div class="admin-option" id="admin-opt-${letter}">${opt}</div>`;
+            }).join('');
         }
 
         socket.on('connect', () => {
@@ -715,21 +752,12 @@
         socket.on('new-question', (q) => {
             console.log('Новый вопрос:', q);
             handleNewQuestion(q);
+            
+            // Для админа показываем вопрос
+            if (role === 'admin') {
+                displayAdminQuestion(q);
+            }
         });
-	
-	// Добавьте после socket.on('new-question') или в любое место
-
-socket.on('all-players-answered', () => {
-    console.log('Все игроки ответили!');
-    
-    if (role === 'player') {
-        // Показываем сообщение, что все ответили
-        const timerSpan = document.getElementById('timer');
-        timerSpan.textContent = '✅';
-        timerSpan.style.fontSize = '3em';
-        timerSpan.innerHTML = 'Все ответили!<br><span style="font-size: 0.5em;">Ожидание...</span>';
-    }
-});
 
         socket.on('answer-accepted', (data) => {
             console.log('Ответ принят:', data);
@@ -746,40 +774,22 @@ socket.on('all-players-answered', () => {
             alert('Вы уже отвечали на этот вопрос!');
         });
 
+        socket.on('all-players-answered', () => {
+            console.log('Все игроки ответили!');
+            
+            if (role === 'player') {
+                // Показываем сообщение, что все ответили
+                const timerSpan = document.getElementById('timer');
+                timerSpan.className = 'timer all-answered';
+                timerSpan.innerHTML = '✅ Все ответили!<br><span style="font-size: 0.4em;">Ожидание...</span>';
+            }
+        });
+
         // Статистика для игроков
         socket.on('stats-update', (stats) => {
             console.log('Статистика для игроков:', stats);
             if (role === 'player') {
                 updateOptionStats(stats);
-            }
-        });
-
-        // Статистика для админа
-        socket.on('admin-stats-update', (stats) => {
-            console.log('Статистика для админа:', stats);
-            if (role === 'admin') {
-                const barsDiv = document.getElementById('adminStatBars');
-                barsDiv.innerHTML = '<h3>📊 Статистика ответов</h3>';
-                
-                const letters = ['A', 'B', 'C', 'D'];
-                letters.forEach(letter => {
-                    const count = stats.counts[letter] || 0;
-                    const percentage = stats.percentages[letter] || 0;
-                    
-                    barsDiv.innerHTML += `
-                        <div class="stat-item">
-                            <div class="stat-label">
-                                <span>Вариант ${letter}</span>
-                                <span>${count} ответов (${percentage}%)</span>
-                            </div>
-                            <div class="stat-bar">
-                                <div class="stat-fill" style="width: ${percentage}%">${percentage}%</div>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                barsDiv.innerHTML += `<p>Всего ответов: ${stats.total} из ${stats.totalPlayers} игроков</p>`;
             }
         });
 
@@ -812,8 +822,15 @@ socket.on('all-players-answered', () => {
                     updateOptionStyles(data.correct);
                 }
             } else if (role === 'admin') {
-                // Админ уже видел правильный ответ в статистике
-                document.getElementById('nextBtn').disabled = false;
+                // Подсвечиваем правильный ответ у админа
+                document.querySelectorAll('.admin-option').forEach(opt => {
+                    opt.classList.remove('correct');
+                });
+                
+                const correctOption = document.getElementById(`admin-opt-${data.correct}`);
+                if (correctOption) {
+                    correctOption.classList.add('correct');
+                }
             }
         });
 
@@ -842,7 +859,8 @@ socket.on('all-players-answered', () => {
             } else if (role === 'admin') {
                 document.getElementById('showCorrectBtn').disabled = false;
                 document.getElementById('nextBtn').disabled = true;
-                document.getElementById('adminPauseInfo').classList.remove('hidden');
+                document.getElementById('adminQuestionContainer').classList.add('hidden');
+                document.getElementById('adminPauseContainer').classList.remove('hidden');
             }
         });
 
@@ -880,6 +898,16 @@ socket.on('all-players-answered', () => {
                 document.getElementById('startBtn').disabled = false;
                 document.getElementById('showCorrectBtn').disabled = true;
                 document.getElementById('nextBtn').disabled = true;
+                
+                // Показываем сообщение об окончании
+                document.getElementById('adminQuestionContainer').classList.add('hidden');
+                document.getElementById('adminPauseContainer').classList.add('hidden');
+                document.getElementById('adminWaitingContainer').classList.remove('hidden');
+                document.getElementById('adminWaitingContainer').innerHTML = `
+                    <h2>🏆 ИГРА ОКОНЧЕНА</h2>
+                    <p>Победитель: ${winners[0]?.name} (${winners[0]?.score} очков)</p>
+                    <button onclick="startGame()" class="admin-btn start">Начать новую игру</button>
+                `;
             }
         });
     </script>
