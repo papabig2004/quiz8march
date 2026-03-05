@@ -465,6 +465,7 @@ let gameState = {
     answers: {}, // socketId -> { answer, isCorrect, timestamp }
     questionStartTime: null,
     questionTimer: null,
+    allAnsweredTimer: null,
     totalQuestions: questions.length
 };
 
@@ -632,6 +633,9 @@ io.on('connection', (socket) => {
                 answer: data.answer,
                 isCorrect: isCorrect
             });
+            
+            // Проверяем, все ли игроки ответили
+            checkAllPlayersAnswered();
         } else {
             socket.emit('answer-rejected', { reason: 'already-answered' });
         }
@@ -678,29 +682,73 @@ function startQuestion() {
         totalQuestions: gameState.totalQuestions
     });
     
-    // Очищаем предыдущий таймер
+    // Очищаем предыдущие таймеры
     if (gameState.questionTimer) {
         clearTimeout(gameState.questionTimer);
+    }
+    if (gameState.allAnsweredTimer) {
+        clearTimeout(gameState.allAnsweredTimer);
     }
     
     // Запускаем таймер окончания вопроса
     gameState.questionTimer = setTimeout(() => {
         if (gameState.isActive && !gameState.isPaused) {
             console.log('Время вышло');
-            gameState.isPaused = true;
-            
-            const question = questions[gameState.currentQuestion];
-            
-            // Финальная статистика
-            sendStatsToAll(true);
-            
-            io.emit('question-end', {
-                correct: question.correct,
-                question: question.question,
-                options: question.options
-            });
+            endQuestion();
         }
     }, gameState.timer * 1000);
+}
+
+function checkAllPlayersAnswered() {
+    if (!gameState.isActive || gameState.isPaused) return;
+    
+    // Считаем только онлайн игроков
+    const onlinePlayers = Array.from(gameState.players.values())
+        .filter(p => p.socketId !== null);
+    
+    const answeredCount = Object.keys(gameState.answers).length;
+    
+    console.log(`Ответили: ${answeredCount} из ${onlinePlayers.length} игроков`);
+    
+    // Если все онлайн игроки ответили
+    if (onlinePlayers.length > 0 && answeredCount >= onlinePlayers.length) {
+        console.log('Все игроки ответили! Завершаем вопрос досрочно');
+        
+        // Отменяем основной таймер
+        if (gameState.questionTimer) {
+            clearTimeout(gameState.questionTimer);
+        }
+        
+        // Показываем сообщение о том, что все ответили
+        io.emit('all-players-answered');
+        
+        // Даем небольшую паузу, чтобы увидеть сообщение, потом завершаем вопрос
+        if (gameState.allAnsweredTimer) {
+            clearTimeout(gameState.allAnsweredTimer);
+        }
+        
+        gameState.allAnsweredTimer = setTimeout(() => {
+            endQuestion();
+        }, 1500); // 1.5 секунды паузы после того, как все ответили
+    }
+}
+
+function endQuestion() {
+    if (gameState.isActive && !gameState.isPaused) {
+        console.log('Завершение вопроса');
+        gameState.isPaused = true;
+        
+        const question = questions[gameState.currentQuestion];
+        
+        // Финальная статистика
+        sendStatsToAll(true);
+        
+        io.emit('question-end', {
+            correct: question.correct,
+            question: question.question,
+            options: question.options
+        });
+    }
 }
 
 function sendStatsToAll(isFinal = false) {
@@ -733,7 +781,8 @@ function sendPlayersUpdate() {
 
 function calculateStats() {
     const totalAnswers = Object.keys(gameState.answers).length;
-    const totalPlayers = gameState.players.size;
+    const totalPlayers = Array.from(gameState.players.values())
+        .filter(p => p.socketId !== null).length; // Считаем только онлайн
     const counts = { A: 0, B: 0, C: 0, D: 0 };
     
     Object.values(gameState.answers).forEach(a => counts[a.answer]++);

@@ -716,6 +716,20 @@
             console.log('Новый вопрос:', q);
             handleNewQuestion(q);
         });
+	
+	// Добавьте после socket.on('new-question') или в любое место
+
+socket.on('all-players-answered', () => {
+    console.log('Все игроки ответили!');
+    
+    if (role === 'player') {
+        // Показываем сообщение, что все ответили
+        const timerSpan = document.getElementById('timer');
+        timerSpan.textContent = '✅';
+        timerSpan.style.fontSize = '3em';
+        timerSpan.innerHTML = 'Все ответили!<br><span style="font-size: 0.5em;">Ожидание...</span>';
+    }
+});
 
         socket.on('answer-accepted', (data) => {
             console.log('Ответ принят:', data);
