@@ -167,20 +167,18 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         }
 
-        .option-btn.selected {
+        .option-btn.selected-correct {
             background: #4CAF50;
+            color: white;
+        }
+
+        .option-btn.selected-wrong {
+            background: #f44336;
             color: white;
         }
 
         .option-btn.correct-answer {
-            background: #4CAF50;
-            color: white;
             border: 3px solid #ffd700;
-        }
-
-        .option-btn.wrong-answer {
-            background: #f44336;
-            color: white;
         }
 
         .option-btn:disabled {
@@ -345,7 +343,7 @@
         }
 
         .correct-answer-display {
-            font-size: 3em;
+            font-size: 2em;
             margin: 20px 0;
             padding: 20px;
             background: rgba(76, 175, 80, 0.3);
@@ -398,7 +396,7 @@
 
             <div id="questionView" class="hidden">
                 <div class="question-container">
-                    <div class="timer" id="timer">60</div>
+                    <div class="timer" id="timer">30</div>
                     <div class="question-progress" id="progress"></div>
                     <div class="question-text" id="questionText"></div>
                     <div class="options-grid" id="options"></div>
@@ -456,14 +454,27 @@
         let hasAnswered = false;
         let timerInterval = null;
         let questionEnded = false;
+        let myLastAnswer = null;
 
-        window.selectRole = function(r) {
+        // Восстанавливаем роль после обновления
+        window.addEventListener('load', () => {
+            const savedRole = localStorage.getItem('quizRole');
+            const savedName = localStorage.getItem('quizName');
+            
+            if (savedRole && savedName) {
+                selectRole(savedRole, savedName, true);
+            }
+        });
+
+        window.selectRole = function(r, savedName = null, isReload = false) {
             console.log('Выбрана роль:', r);
             role = r;
-            let name = '';
             
-            if (r === 'player') {
+            let name = savedName;
+            if (r === 'player' && !savedName) {
                 name = prompt('Введите ваше имя:', 'Игрок') || 'Аноним';
+                localStorage.setItem('quizRole', r);
+                localStorage.setItem('quizName', name);
             }
             
             document.getElementById('roleSelect').classList.add('hidden');
@@ -473,6 +484,7 @@
                 document.getElementById('waitingView').classList.remove('hidden');
             } else {
                 document.getElementById('adminView').classList.remove('hidden');
+                localStorage.removeItem('quizRole'); // Админа не сохраняем
             }
             
             socket.emit('join', r, name);
@@ -494,16 +506,33 @@
             console.log('Ответ:', letter);
             if (currentQuestion && !hasAnswered && !questionEnded) {
                 hasAnswered = true;
+                myLastAnswer = letter;
                 socket.emit('answer', { answer: letter });
-                
-                document.querySelectorAll('.option-btn').forEach(btn => {
-                    btn.disabled = true;
-                    if (btn.id === `opt-${letter}`) {
-                        btn.classList.add('selected');
-                    }
-                });
             }
         };
+
+        function updateOptionStyles(playerAnswers, correctAnswer) {
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                const letter = btn.id.replace('opt-', '');
+                
+                // Убираем предыдущие классы
+                btn.classList.remove('selected-correct', 'selected-wrong', 'correct-answer');
+                
+                // Если это правильный ответ, добавляем обводку
+                if (correctAnswer && letter === correctAnswer) {
+                    btn.classList.add('correct-answer');
+                }
+                
+                // Если это мой ответ
+                if (myLastAnswer === letter) {
+                    if (correctAnswer && myLastAnswer === correctAnswer) {
+                        btn.classList.add('selected-correct');
+                    } else if (correctAnswer) {
+                        btn.classList.add('selected-wrong');
+                    }
+                }
+            });
+        }
 
         function updateOptionStats(stats) {
             document.querySelectorAll('.option-btn').forEach(btn => {
@@ -529,21 +558,37 @@
                 statsBar.style.width = `${percentage}%`;
                 btn.appendChild(statsBar);
             });
+
+            // Обновляем стили кнопок
+            if (stats.correct) {
+                updateOptionStyles(stats.playerAnswers, stats.correct);
+            }
         }
 
         socket.on('connect', () => {
             console.log('Подключено к серверу');
         });
 
+        socket.on('game-state', (state) => {
+            console.log('Состояние игры:', state);
+            if (role === 'player' && state.players) {
+                updatePlayersList(state.players);
+            }
+        });
+
+        socket.on('current-question', (q) => {
+            console.log('Текущий вопрос после перезагрузки:', q);
+            handleNewQuestion(q);
+        });
+
         socket.on('init', (data) => {
             console.log('Init:', data);
             if (data.gameState && role === 'player') {
                 document.getElementById('waitingView').classList.add('hidden');
-                document.getElementById('questionView').classList.remove('hidden');
             }
         });
 
-        socket.on('players-update', (players) => {
+        function updatePlayersList(players) {
             if (role === 'player') {
                 const playersList = document.getElementById('playersList');
                 playersList.innerHTML = players
@@ -555,55 +600,51 @@
                         </div>
                     `).join('');
             }
+        }
+
+        socket.on('players-update', (players) => {
+            updatePlayersList(players);
         });
 
-        socket.on('new-question', (q) => {
-            console.log('Новый вопрос:', q);
+        function handleNewQuestion(q) {
             hasAnswered = false;
             questionEnded = false;
             currentQuestion = q;
+            myLastAnswer = null;
             
-            if (role === 'player') {
-                document.getElementById('waitingView').classList.add('hidden');
-                document.getElementById('pauseView').classList.add('hidden');
-                document.getElementById('questionView').classList.remove('hidden');
-                document.getElementById('gameEndView')?.classList.add('hidden');
-                
-                document.getElementById('questionText').textContent = q.question;
-                document.getElementById('progress').textContent = 
-                    `Вопрос ${q.questionNumber} из ${q.totalQuestions}`;
-                
-                const optionsDiv = document.getElementById('options');
-                optionsDiv.innerHTML = q.options.map(opt => {
-                    const letter = opt.charAt(0);
-                    return `<button class="option-btn" onclick="answer('${letter}')" id="opt-${letter}">${opt}</button>`;
-                }).join('');
-                
-                let timeLeft = q.timer;
-                const timerSpan = document.getElementById('timer');
+            document.getElementById('waitingView').classList.add('hidden');
+            document.getElementById('pauseView').classList.add('hidden');
+            document.getElementById('questionView').classList.remove('hidden');
+            document.getElementById('gameEndView')?.classList.add('hidden');
+            
+            document.getElementById('questionText').textContent = q.question;
+            document.getElementById('progress').textContent = 
+                `Вопрос ${q.questionNumber} из ${q.totalQuestions}`;
+            
+            const optionsDiv = document.getElementById('options');
+            optionsDiv.innerHTML = q.options.map(opt => {
+                const letter = opt.charAt(0);
+                return `<button class="option-btn" onclick="answer('${letter}')" id="opt-${letter}">${opt}</button>`;
+            }).join('');
+            
+            let timeLeft = q.timer;
+            const timerSpan = document.getElementById('timer');
+            timerSpan.textContent = timeLeft;
+            
+            if (timerInterval) clearInterval(timerInterval);
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
                 timerSpan.textContent = timeLeft;
-                
-                if (timerInterval) clearInterval(timerInterval);
-                
-                timerInterval = setInterval(() => {
-                    timeLeft--;
-                    timerSpan.textContent = timeLeft;
-                    if (timeLeft <= 0) {
-                        clearInterval(timerInterval);
-                    }
-                }, 1000);
-                
-            } else if (role === 'admin') {
-                document.getElementById('adminStats').classList.remove('hidden');
-                document.getElementById('startBtn').disabled = true;
-                document.getElementById('nextBtn').disabled = true;
-                document.getElementById('adminPauseInfo').classList.add('hidden');
-                
-                document.getElementById('adminQuestion').innerHTML = `
-                    <h3>${q.questionNumber}. ${q.question}</h3>
-                    <p>⏱️ Время: ${q.timer} сек</p>
-                `;
-            }
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                }
+            }, 1000);
+        }
+
+        socket.on('new-question', (q) => {
+            console.log('Новый вопрос:', q);
+            handleNewQuestion(q);
         });
 
         socket.on('stats-update', (stats) => {
@@ -655,49 +696,17 @@
                 document.getElementById('questionView').classList.add('hidden');
                 document.getElementById('pauseView').classList.remove('hidden');
                 
-                // Показываем правильный ответ
-                const correctLetter = data.correct;
+                // Находим правильный ответ
                 let correctText = '';
-                if (currentQuestion) {
-                    const correctOption = currentQuestion.options.find(opt => opt.charAt(0) === correctLetter);
-                    correctText = correctOption || `Вариант ${correctLetter}`;
+                if (data.options) {
+                    const correctOption = data.options.find(opt => opt.charAt(0) === data.correct);
+                    correctText = correctOption || `Вариант ${data.correct}`;
                 }
+                
                 document.getElementById('correctAnswer').innerHTML = `
-                    Правильный ответ: ${correctText}
+                    <strong>Правильный ответ:</strong><br>
+                    ${correctText}
                 `;
-                
-                // Показываем финальную статистику
-                const statsDiv = document.getElementById('pauseStats');
-                statsDiv.innerHTML = '<h3>📊 Итоговая статистика</h3>';
-                
-                const letters = ['A', 'B', 'C', 'D'];
-                letters.forEach(letter => {
-                    const count = data.stats.counts[letter] || 0;
-                    const percentage = data.stats.percentages[letter] || 0;
-                    
-                    statsDiv.innerHTML += `
-                        <div class="stat-item">
-                            <div class="stat-label">
-                                <span>Вариант ${letter}</span>
-                                <span>${count} ответов (${percentage}%)</span>
-                            </div>
-                            <div class="stat-bar">
-                                <div class="stat-fill" style="width: ${percentage}%">${percentage}%</div>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                // Подсвечиваем правильный ответ на кнопках
-                document.querySelectorAll('.option-btn').forEach(btn => {
-                    const letter = btn.id.replace('opt-', '');
-                    if (letter === data.correct) {
-                        btn.classList.add('correct-answer');
-                    } else if (btn.classList.contains('selected')) {
-                        btn.classList.add('wrong-answer');
-                    }
-                });
-                
             } else if (role === 'admin') {
                 document.getElementById('nextBtn').disabled = false;
                 document.getElementById('adminPauseInfo').classList.remove('hidden');
@@ -729,6 +738,10 @@
                         </div>
                     `).join('')}
                 `;
+                
+                // Очищаем сохраненные данные
+                localStorage.removeItem('quizRole');
+                localStorage.removeItem('quizName');
             } else if (role === 'admin') {
                 alert('Игра окончена! Победитель: ' + winners[0]?.name);
                 document.getElementById('startBtn').disabled = false;
