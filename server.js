@@ -663,26 +663,41 @@ io.on('connection', (socket) => {
     });
 
     
-    socket.on('game-reset', () => {
-        console.log('Игра сброшена');
-        
-        if (role === 'player') {
-            // Очищаем localStorage
-            localStorage.removeItem('quizRole');
-            localStorage.removeItem('quizName');
-            localStorage.removeItem('clientId');
+    socket.on('restart-game', () => {
+        if (socket.role === 'admin') {
+            console.log('Перезапуск игры админом');
             
-            // Показываем сообщение о сбросе
-            alert('Игра была сброшена администратором. Пожалуйста, перезайдите как новый игрок.');
-            
-            // Возвращаем на экран выбора роли
-            document.getElementById('playerView').classList.add('hidden');
-            document.getElementById('roleSelect').classList.remove('hidden');
-            
-            // Сбрасываем все таймеры
-            if (timerInterval) {
-                clearInterval(timerInterval);
+            // Сбрасываем очки у всех игроков
+            for (let [clientId, player] of gameState.players.entries()) {
+                player.score = 0;
+                player.hasAnswered = false;
+                player.lastAnswer = null;
             }
+            
+            // Очищаем состояние игры
+            gameState.currentQuestion = 0;
+            gameState.isActive = false;
+            gameState.isPaused = false;
+            gameState.answers = {};
+            playerAnswers.clear();
+            
+            // Очищаем таймеры
+            if (gameState.questionTimer) {
+                clearTimeout(gameState.questionTimer);
+                gameState.questionTimer = null;
+            }
+            if (gameState.allAnsweredTimer) {
+                clearTimeout(gameState.allAnsweredTimer);
+                gameState.allAnsweredTimer = null;
+            }
+            
+            // Отправляем обновленный список игроков (с обнуленными очками)
+            sendPlayersUpdate();
+            
+            // Отправляем сигнал о перезапуске админу
+            io.to('admin').emit('game-restarted');
+            
+            console.log('Игра перезапущена');
         }
     });
 
